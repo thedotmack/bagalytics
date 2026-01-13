@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, ComposedChart, Line } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { TrendingUp, TrendingDown, Activity, DollarSign, Target, Droplets, Zap, BarChart3, Clock, Wallet, User, Crown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, DollarSign, Target, Droplets, Zap, BarChart3, Clock, Wallet, User, Crown, Copy } from 'lucide-react';
 
 // Format large numbers with K/M suffixes
 const formatCompactUsd = (value: number): string => {
@@ -18,6 +18,9 @@ const formatCompactUsd = (value: number): string => {
   }
   return `$${value.toFixed(0)}`;
 };
+
+const truncateAddress = (addr: string): string =>
+  `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
 interface OrderBucket {
   priceLevel: number;
@@ -63,6 +66,9 @@ interface TokenData {
   lifetimeFeesUsd: number;
   solPriceUsd: number;
   creators: TokenCreator[];
+  tokenName: string | null;
+  tokenSymbol: string | null;
+  tokenImage: string | null;
 }
 
 export default function Home() {
@@ -82,6 +88,7 @@ export default function Home() {
     loading: false,
     error: null
   });
+  const [chartView, setChartView] = useState<'fees' | 'orders'>('fees');
 
   // Fetch token data from our API route
   const fetchTokenData = async (ca: string): Promise<TokenData | null> => {
@@ -240,63 +247,169 @@ export default function Home() {
 
       <div className="relative z-10 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         {/* Header */}
-        <div className="mb-8 sm:mb-10">
-          <div className="flex items-center gap-4 mb-3">
-            <div className="text-5xl sm:text-6xl">💰</div>
+        <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
+          {/* Left: Logo + tagline */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-emerald-400" />
+            </div>
             <div>
-              <h1 className="text-3xl sm:text-5xl font-black tracking-tight bg-gradient-to-r from-emerald-400 via-emerald-300 to-emerald-500 bg-clip-text text-transparent">
-                BAGALYTICS
-              </h1>
-              <p className="text-zinc-300 text-sm sm:text-base font-mono mt-1">
-                1% Creator Fee Tracker · Volume Analytics
-              </p>
+              <h1 className="text-xl font-bold text-emerald-400 tracking-tight">BAGALYTICS</h1>
+              <p className="text-xs text-zinc-500">Creator Fee Tracker · Volume Analytics</p>
             </div>
           </div>
 
-          {/* Error alert */}
-          {error && (
-            <Alert className="border-red-600 bg-red-950 mt-4">
-              <AlertDescription className="text-red-100 text-sm">
-                <span className="font-semibold text-red-300">Error</span> — {error}
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
+          {/* Right: Search input + button */}
+          <div className="flex gap-2">
+            <Input
+              value={tokenCA}
+              onChange={(e) => setTokenCA(e.target.value)}
+              placeholder="Enter token contract address..."
+              className="w-80 h-9 text-sm bg-zinc-900 border-zinc-700 rounded-lg font-mono placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+            />
+            <Button
+              onClick={analyze}
+              disabled={loading}
+              className="h-9 px-4 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-500 font-semibold"
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 animate-spin" />
+                  Loading...
+                </span>
+              ) : 'Analyze'}
+            </Button>
+          </div>
+        </header>
 
-        {/* Search */}
-        <Card className="border-zinc-700 bg-zinc-900 mb-8">
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Input
-                value={tokenCA}
-                onChange={(e) => setTokenCA(e.target.value)}
-                placeholder="Enter token contract address..."
-                className="flex-1 bg-zinc-950 border-zinc-600 text-white font-mono text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20 h-12"
-              />
-              <Button
-                onClick={analyze}
-                disabled={loading}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold uppercase tracking-wider h-12 px-8 transition-all hover:shadow-lg hover:shadow-emerald-500/20"
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <Activity className="h-4 w-4 animate-spin" />
-                    Loading...
-                  </span>
-                ) : 'Analyze'}
-              </Button>
+        {/* Error alert */}
+        {error && (
+          <Alert className="border-red-600 bg-red-950 mb-8">
+            <AlertDescription className="text-red-100 text-sm">
+              <span className="font-semibold text-red-300">Error</span> — {error}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Token Details Card */}
+        {data && (
+          <Card className="mb-6 p-6 rounded-2xl bg-zinc-900/50 border-zinc-800">
+            <div className="flex items-center gap-4">
+              {/* Token Image */}
+              {data.tokenImage ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={data.tokenImage}
+                  alt={data.tokenName || 'Token'}
+                  className="w-16 h-16 rounded-full"
+                />
+              ) : data.creators[0]?.pfp ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={data.creators[0].pfp}
+                  alt={data.tokenName || 'Token'}
+                  className="w-16 h-16 rounded-full"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center">
+                  <DollarSign className="w-8 h-8 text-zinc-600" />
+                </div>
+              )}
+
+              {/* Token Info */}
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold text-white">
+                  {data.tokenName || data.tokenSymbol || 'Token'}
+                </h2>
+                <button
+                  className="flex items-center gap-1 text-zinc-500 text-sm font-mono hover:text-zinc-300 transition-colors"
+                  onClick={() => navigator.clipboard.writeText(tokenCA)}
+                >
+                  {truncateAddress(tokenCA)}
+                  <Copy className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* Key Metrics */}
+              <div className="grid grid-cols-2 gap-6 text-right">
+                <div>
+                  <p className="text-zinc-500 text-xs uppercase">Price</p>
+                  <p className="text-xl font-bold text-white">
+                    ${data.price < 0.001 ? data.price.toFixed(7) : data.price.toFixed(4)}
+                  </p>
+                  <p className={`text-sm ${data.priceChange24h >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {data.priceChange24h >= 0 ? '+' : ''}{data.priceChange24h.toFixed(2)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-zinc-500 text-xs uppercase">Volume 24H</p>
+                  <p className="text-xl font-bold text-white">{formatCompactUsd(data.volume24h)}</p>
+                </div>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </Card>
+        )}
 
         {data && (
           <>
+            {/* Fee Projections - PRIMARY FOCUS */}
+            <Card className="mb-6 p-6 rounded-2xl bg-gradient-to-r from-zinc-900 to-zinc-900/50 border-emerald-900/50">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-lg font-semibold text-emerald-400">Fee Projections</h3>
+              </div>
+
+              {/* Rate indicators */}
+              {(() => {
+                const lifetimeVelocity = data.tokenAgeHours && data.tokenAgeHours > 0
+                  ? data.lifetimeFeesUsd / data.tokenAgeHours
+                  : 0;
+                return (
+                  <>
+                    <div className="flex gap-6 text-sm text-zinc-400 mb-4">
+                      <span>Lifetime avg: <span className="text-amber-400">${lifetimeVelocity.toFixed(2)}/hr</span></span>
+                      <span>24h avg: <span className={data.feeVelocity > lifetimeVelocity ? 'text-emerald-400' : 'text-zinc-300'}>${data.feeVelocity.toFixed(2)}/hr{data.feeVelocity > lifetimeVelocity && ' ↑'}</span></span>
+                      {data.feeVelocity1h !== undefined && (
+                        <span>1h: <span className={data.feeVelocity1h > lifetimeVelocity ? 'text-emerald-400' : 'text-zinc-300'}>${data.feeVelocity1h.toFixed(2)}/hr{data.feeVelocity1h > lifetimeVelocity && ' ↑'}</span></span>
+                      )}
+                    </div>
+
+                    {/* Projections grid - LARGE typography */}
+                    <div className="grid grid-cols-3 gap-8">
+                      <div>
+                        <p className="text-zinc-500 text-sm mb-1">WEEKLY</p>
+                        <p className="text-3xl font-bold text-emerald-400">${(lifetimeVelocity * 24 * 7).toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-500 text-sm mb-1">MONTHLY</p>
+                        <p className="text-3xl font-bold text-emerald-400">${(lifetimeVelocity * 24 * 30).toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-500 text-sm mb-1">YEARLY</p>
+                        <p className="text-3xl font-bold text-emerald-400">${(lifetimeVelocity * 24 * 365).toLocaleString(undefined, {maximumFractionDigits: 0})}</p>
+                      </div>
+                    </div>
+
+                    {/* Volatility alert inline */}
+                    {Math.abs(data.priceChange24h) > 10 && (
+                      <div className="mt-4 p-3 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                        <p className="text-amber-400 text-sm flex items-center gap-2">
+                          <Zap className="w-4 h-4" />
+                          {Math.abs(data.priceChange24h).toFixed(1)}% price swing — increased trading typically means more fees
+                        </p>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </Card>
+
             {/* Hero Metrics - 24h Fees and Lifetime Fees side by side */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
               {/* 24h Fees Box */}
-              <Card className="border-emerald-700 bg-zinc-900 overflow-hidden relative">
+              <Card className="p-5 rounded-2xl bg-zinc-900/60 border-zinc-800 hover:border-zinc-700 transition-colors overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/20 to-transparent pointer-events-none" />
-                <CardContent className="pt-6 pb-6 relative">
+                <CardContent className="p-0 relative">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-5 w-5 text-emerald-400" />
@@ -310,7 +423,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="text-4xl sm:text-5xl font-black text-emerald-400 font-mono tracking-tighter mb-3">
+                  <div className="text-3xl font-black text-emerald-400 font-mono tracking-tighter mb-3">
                     ${data.totalFeesAccumulated.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                   </div>
 
@@ -329,9 +442,9 @@ export default function Home() {
               </Card>
 
               {/* Lifetime Fees Box */}
-              <Card className="border-amber-700/50 bg-zinc-900 overflow-hidden relative">
+              <Card className="p-5 rounded-2xl bg-zinc-900/60 border-zinc-800 hover:border-zinc-700 transition-colors overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-amber-900/10 to-transparent pointer-events-none" />
-                <CardContent className="pt-6 pb-6 relative">
+                <CardContent className="p-0 relative">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Wallet className="h-5 w-5 text-amber-400" />
@@ -342,7 +455,7 @@ export default function Home() {
                     <span className="text-xs font-mono text-zinc-500">ALL TIME</span>
                   </div>
 
-                  <div className="text-4xl sm:text-5xl font-black text-amber-400 font-mono tracking-tighter mb-3">
+                  <div className="text-3xl font-black text-amber-400 font-mono tracking-tighter mb-3">
                     {data.lifetimeFeesUsd > 0
                       ? `$${data.lifetimeFeesUsd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
                       : '—'
@@ -359,164 +472,152 @@ export default function Home() {
               </Card>
             </div>
 
-            {/* Token Creators Section */}
-            <Card className="border-zinc-700 bg-zinc-900 mb-8">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-white font-semibold text-base flex items-center gap-2">
-                  <User className="h-4 w-4 text-purple-400" />
-                  Token Creators
-                </CardTitle>
-                <CardDescription className="text-zinc-400 text-sm">
-                  Fee recipients and royalty distribution
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {!data.creators || data.creators.length === 0 ? (
-                  <div className="text-center py-6">
-                    <User className="h-8 w-8 text-zinc-600 mx-auto mb-2" />
-                    <p className="text-zinc-500 text-sm">No creator data available</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {/* Sort creators: primary creator first */}
-                    {[...data.creators]
-                      .sort((a, b) => (b.isCreator ? 1 : 0) - (a.isCreator ? 1 : 0))
-                      .map((creator) => {
-                        const displayName = creator.providerUsername ?? creator.username ?? 'Unknown';
-                        const truncatedWallet = `${creator.wallet.slice(0, 4)}...${creator.wallet.slice(-4)}`;
-                        const royaltyPercent = (creator.royaltyBps / 100).toFixed(2);
-
-                        return (
-                          <div
-                            key={creator.wallet}
-                            className={`flex items-center gap-4 p-4 rounded-lg border ${
-                              creator.isCreator
-                                ? 'bg-purple-950/30 border-purple-700/50'
-                                : 'bg-zinc-950 border-zinc-700'
-                            }`}
-                          >
-                            {/* Profile Picture */}
-                            <div className="relative flex-shrink-0">
-                              {creator.pfp ? (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img
-                                  src={creator.pfp}
-                                  alt={displayName}
-                                  className="w-12 h-12 rounded-full object-cover border-2 border-zinc-600"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                                  }}
-                                />
-                              ) : null}
-                              <div className={`w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center border-2 border-zinc-600 ${creator.pfp ? 'hidden' : ''}`}>
-                                <span className="text-lg font-bold text-zinc-400">
-                                  {displayName.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              {creator.isCreator && (
-                                <div className="absolute -top-1 -right-1 bg-purple-600 rounded-full p-1">
-                                  <Crown className="h-3 w-3 text-white" />
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Creator Info */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-white truncate">
-                                  {displayName}
-                                </span>
-                                {creator.isCreator && (
-                                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-600/30 text-purple-300 font-medium">
-                                    Creator
-                                  </span>
-                                )}
-                                {creator.provider && (
-                                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                    creator.provider === 'twitter'
-                                      ? 'bg-sky-600/30 text-sky-300'
-                                      : creator.provider === 'tiktok'
-                                      ? 'bg-pink-600/30 text-pink-300'
-                                      : creator.provider === 'github'
-                                      ? 'bg-zinc-600/30 text-zinc-300'
-                                      : 'bg-zinc-600/30 text-zinc-300'
-                                  }`}>
-                                    {creator.provider}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-sm text-zinc-400 font-mono mt-1">
-                                {truncatedWallet}
-                              </div>
-                            </div>
-
-                            {/* Royalty Percentage */}
-                            <div className="text-right flex-shrink-0">
-                              <div className="text-xl font-bold text-emerald-400 font-mono">
-                                {royaltyPercent}%
-                              </div>
-                              <div className="text-xs text-zinc-500">royalty</div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             {/* Fees Chart */}
             <Card className="border-zinc-700 bg-zinc-900 mb-8">
               <CardHeader>
-                <div>
-                  <CardTitle className="text-emerald-400 font-mono uppercase tracking-wider text-sm sm:text-base flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4" />
-                    Fee Stream (24h)
-                  </CardTitle>
-                  <CardDescription className="text-zinc-300 text-sm mt-1">
-                    Hourly creator fees from 1% trading volume
-                  </CardDescription>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle className="text-emerald-400 font-mono uppercase tracking-wider text-sm sm:text-base flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4" />
+                      {chartView === 'fees' ? 'Fee Stream (24h)' : 'Limit Order Levels'}
+                    </CardTitle>
+                    <CardDescription className="text-zinc-300 text-sm mt-1">
+                      {chartView === 'fees' ? 'Hourly creator fees from 1% trading volume' : 'Buy/sell orders at price levels'}
+                    </CardDescription>
+                  </div>
+
+                  {/* View Toggle */}
+                  <div className="flex gap-1 bg-zinc-800 rounded-lg p-1">
+                    <button
+                      onClick={() => setChartView('fees')}
+                      className={`px-3 py-1 text-xs rounded-md transition-colors ${chartView === 'fees' ? 'bg-emerald-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+                    >
+                      Fee Income
+                    </button>
+                    <button
+                      onClick={() => setChartView('orders')}
+                      className={`px-3 py-1 text-xs rounded-md transition-colors ${chartView === 'orders' ? 'bg-emerald-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+                    >
+                      Limit Orders
+                    </button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="h-64 sm:h-80 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={feesHistory} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="feeGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <XAxis
-                        dataKey="time"
-                        stroke="#71717a"
-                        fontSize={11}
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fill: '#d4d4d8' }}
-                        interval="preserveStartEnd"
-                      />
-                      <YAxis
-                        stroke="#71717a"
-                        fontSize={11}
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fill: '#d4d4d8' }}
-                        tickFormatter={(v) => `$${v}`}
-                        width={50}
-                      />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Area
-                        type="monotone"
-                        dataKey="fees"
-                        stroke="#10b981"
-                        strokeWidth={2}
-                        fill="url(#feeGradient)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  {chartView === 'fees' ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={feesHistory} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="feeGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        {/* Average reference line */}
+                        {feesHistory.length > 0 && (
+                          <ReferenceLine
+                            y={feesHistory.reduce((sum, d) => sum + d.fees, 0) / feesHistory.length}
+                            stroke="#52525b"
+                            strokeDasharray="5 5"
+                          />
+                        )}
+                        <XAxis
+                          dataKey="time"
+                          stroke="#71717a"
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fill: '#d4d4d8' }}
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis
+                          stroke="#71717a"
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fill: '#d4d4d8' }}
+                          tickFormatter={(v) => `$${v}`}
+                          width={50}
+                        />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Area
+                          type="monotone"
+                          dataKey="fees"
+                          stroke="#10b981"
+                          strokeWidth={2}
+                          fill="url(#feeGradient)"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    /* Limit Orders View - Simple price ladder */
+                    <div className="h-full flex flex-col justify-center space-y-2 overflow-auto">
+                      {limitOrderData.loading ? (
+                        <div className="flex items-center justify-center">
+                          <Activity className="h-4 w-4 animate-spin text-emerald-400" />
+                          <span className="ml-2 text-zinc-400 text-sm">Loading orders...</span>
+                        </div>
+                      ) : limitOrderData.error ? (
+                        <p className="text-red-400 text-center text-sm">{limitOrderData.error}</p>
+                      ) : (
+                        <>
+                          {/* Sell orders (above current price) */}
+                          {limitOrderData.sellBuckets.slice(0, 3).reverse().map((bucket, i) => (
+                            <div key={`sell-${i}`} className="flex items-center gap-2">
+                              <div className="w-20 text-right text-red-400 text-xs font-mono">
+                                ${bucket.feePotentialUsd.toFixed(2)}
+                              </div>
+                              <div className="flex-1 h-4 bg-zinc-800 rounded overflow-hidden">
+                                <div
+                                  className="h-full bg-red-500/50"
+                                  style={{ width: `${Math.min(100, bucket.orderCount * 10)}%` }}
+                                />
+                              </div>
+                              <div className="w-24 text-zinc-400 text-xs font-mono">
+                                ${bucket.priceLevel.toFixed(6)}
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Current price marker */}
+                          {data && (
+                            <div className="flex items-center gap-2 py-1">
+                              <div className="w-20 text-right text-emerald-400 text-xs font-mono font-bold">
+                                Current
+                              </div>
+                              <div className="flex-1 h-1 bg-emerald-400 rounded" />
+                              <div className="w-24 text-emerald-400 text-xs font-mono font-bold">
+                                ${data.price.toFixed(6)}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Buy orders (below current price) */}
+                          {limitOrderData.buyBuckets.slice(0, 3).map((bucket, i) => (
+                            <div key={`buy-${i}`} className="flex items-center gap-2">
+                              <div className="w-20 text-right text-emerald-400 text-xs font-mono">
+                                ${bucket.feePotentialUsd.toFixed(2)}
+                              </div>
+                              <div className="flex-1 h-4 bg-zinc-800 rounded overflow-hidden">
+                                <div
+                                  className="h-full bg-emerald-500/50"
+                                  style={{ width: `${Math.min(100, bucket.orderCount * 10)}%` }}
+                                />
+                              </div>
+                              <div className="w-24 text-zinc-400 text-xs font-mono">
+                                ${bucket.priceLevel.toFixed(6)}
+                              </div>
+                            </div>
+                          ))}
+
+                          {limitOrderData.sellBuckets.length === 0 && limitOrderData.buyBuckets.length === 0 && (
+                            <p className="text-zinc-500 text-center text-sm">No limit orders found</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -548,118 +649,6 @@ export default function Home() {
                 trend={data.priceChange24h}
               />
             </div>
-
-            {/* Insights Panel */}
-            <Card className="border-zinc-700 bg-zinc-900">
-              <CardHeader>
-                <CardTitle className="text-white font-semibold text-base flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-emerald-400" />
-                  Volume Optimization Insights
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Buy/Sell Pressure */}
-                <div className="p-4 bg-zinc-950 rounded-lg border border-zinc-700">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-zinc-200">Buy/Sell Ratio</span>
-                    <span className={`text-sm font-mono font-semibold ${data.buys24h > data.sells24h ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {((data.buys24h / data.sells24h) * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
-                      style={{ width: `${(data.buys24h / (data.buys24h + data.sells24h)) * 100}%` }}
-                    />
-                  </div>
-                  <p className="text-sm text-zinc-300 mt-2">
-                    {data.buys24h > data.sells24h
-                      ? '📈 Strong buy pressure → Price momentum building'
-                      : '📉 Sell pressure detected → Watch for reversal signals'
-                    }
-                  </p>
-                </div>
-
-                {/* Volatility Alert */}
-                {Math.abs(data.priceChange24h) > 10 && (
-                  <div className="p-4 bg-emerald-950 rounded-lg border border-emerald-700">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Zap className="h-4 w-4 text-emerald-400" />
-                      <span className="text-sm font-semibold text-emerald-300">High Volatility Detected</span>
-                    </div>
-                    <p className="text-sm text-zinc-200">
-                      {Math.abs(data.priceChange24h).toFixed(1)}% price swing in 24h — increased trading activity typically means more fee generation opportunities.
-                    </p>
-                  </div>
-                )}
-
-                {/* Fee Projections */}
-                <div className="p-4 bg-zinc-950 rounded-lg border border-zinc-700">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Clock className="h-4 w-4 text-zinc-300" />
-                    <span className="text-sm font-medium text-zinc-200">Fee Projections</span>
-                  </div>
-
-                  {/* Velocity comparison */}
-                  {(() => {
-                    const lifetimeVelocity = data.tokenAgeHours && data.tokenAgeHours > 0
-                      ? data.lifetimeFeesUsd / data.tokenAgeHours
-                      : 0;
-                    return (
-                      <>
-                        <div className="flex flex-wrap gap-4 mb-4 text-xs font-mono">
-                          <div className="flex items-center gap-2">
-                            <span className="text-zinc-500">Lifetime avg:</span>
-                            <span className="text-amber-400">${lifetimeVelocity.toFixed(2)}/hr</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-zinc-500">24h avg:</span>
-                            <span className={data.feeVelocity > lifetimeVelocity ? 'text-emerald-400' : 'text-zinc-300'}>
-                              ${data.feeVelocity.toFixed(2)}/hr
-                              {data.feeVelocity > lifetimeVelocity && ' ↑'}
-                            </span>
-                          </div>
-                          {data.feeVelocity1h !== undefined && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-zinc-500">1h:</span>
-                              <span className={data.feeVelocity1h > lifetimeVelocity ? 'text-emerald-400' : 'text-zinc-300'}>
-                                ${data.feeVelocity1h.toFixed(2)}/hr
-                                {data.feeVelocity1h > lifetimeVelocity && ' ↑'}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-4">
-                          <div>
-                            <p className="text-xs text-zinc-400 uppercase tracking-wider mb-1">Weekly</p>
-                            <p className="text-xl font-bold text-amber-400 font-mono">
-                              ${(lifetimeVelocity * 24 * 7).toLocaleString(undefined, {maximumFractionDigits: 0})}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-zinc-400 uppercase tracking-wider mb-1">Monthly</p>
-                            <p className="text-xl font-bold text-amber-400 font-mono">
-                              ${(lifetimeVelocity * 24 * 30).toLocaleString(undefined, {maximumFractionDigits: 0})}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-zinc-400 uppercase tracking-wider mb-1">Yearly</p>
-                            <p className="text-xl font-bold text-amber-400 font-mono">
-                              ${(lifetimeVelocity * 24 * 365).toLocaleString(undefined, {maximumFractionDigits: 0})}
-                            </p>
-                          </div>
-                        </div>
-
-                        <p className="text-xs text-zinc-400 mt-3">
-                          * Projections based on lifetime avg ${lifetimeVelocity.toFixed(2)}/hr ({data.tokenAgeHours?.toFixed(0) ?? 0} hours)
-                        </p>
-                      </>
-                    );
-                  })()}
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Limit Order Fee Potential */}
             {data && (
@@ -779,12 +768,86 @@ export default function Home() {
           </>
         )}
 
+        {/* Token Creators - Bottom of page */}
+        {data && (
+          <Card className="mb-6 p-5 rounded-2xl bg-zinc-900/40 border-zinc-800">
+            <h3 className="text-zinc-400 text-sm font-medium mb-4">Token Creators</h3>
+
+            {!data.creators || data.creators.length === 0 ? (
+              <div className="text-center py-4">
+                <User className="h-6 w-6 text-zinc-600 mx-auto mb-2" />
+                <p className="text-zinc-500 text-sm">No creator data available</p>
+              </div>
+            ) : (
+              <div className="flex gap-4 flex-wrap">
+                {[...data.creators]
+                  .sort((a, b) => (b.isCreator ? 1 : 0) - (a.isCreator ? 1 : 0))
+                  .map((creator) => {
+                    const displayName = creator.providerUsername ?? creator.username ?? 'Unknown';
+                    const truncatedWallet = `${creator.wallet.slice(0, 4)}...${creator.wallet.slice(-4)}`;
+
+                    return (
+                      <div key={creator.wallet} className="flex items-center gap-3 p-3 bg-zinc-800/50 rounded-xl">
+                        {creator.pfp ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={creator.pfp}
+                            alt={displayName}
+                            className="w-10 h-10 rounded-full"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-zinc-700 flex items-center justify-center">
+                            <span className="text-sm font-bold text-zinc-400">
+                              {displayName.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-white">
+                              {displayName}
+                            </span>
+                            {creator.isCreator && (
+                              <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded">
+                                Creator
+                              </span>
+                            )}
+                            {creator.provider && (
+                              <span className="px-1.5 py-0.5 bg-zinc-700 text-zinc-400 text-xs rounded">
+                                {creator.provider}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-zinc-500 text-xs font-mono">
+                            {truncatedWallet}
+                          </span>
+                        </div>
+                        <div className="ml-auto text-right">
+                          <span className="text-emerald-400 font-bold">
+                            {(creator.royaltyBps / 100).toFixed(2)}%
+                          </span>
+                          <span className="text-zinc-500 text-xs block">royalty</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </Card>
+        )}
+
         {/* Footer */}
-        <div className="mt-8 text-center">
-          <p className="text-zinc-400 text-xs font-mono">
-            BAGALYTICS · Built for Bags.fm Creators · 1% Volume = Your Income
-          </p>
-        </div>
+        <footer className="text-center text-zinc-600 text-xs py-8">
+          BAGALYTICS · Built for Bags.fm Creators ·{' '}
+          <a
+            href="https://bags.fm/2TsmuYUrsctE57VLckZBYEEzdokUF8j8e1GavekWBAGS"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-emerald-500 hover:text-emerald-400 ml-1"
+          >
+            Built with $CMEM
+          </a>
+        </footer>
       </div>
     </div>
   );

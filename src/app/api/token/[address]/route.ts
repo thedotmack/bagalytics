@@ -123,6 +123,9 @@ export async function GET(
 
       return NextResponse.json({
         pairAddress: pair.pairAddress,
+        tokenName: pair.baseToken?.name || null,
+        tokenSymbol: pair.baseToken?.symbol || null,
+        tokenImage: pair.info?.imageUrl || null,
         price: parseFloat(pair.priceUsd) || 0,
         volume24h,
         volume6h,
