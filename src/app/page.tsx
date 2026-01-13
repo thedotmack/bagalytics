@@ -8,6 +8,16 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TrendingUp, TrendingDown, Activity, DollarSign, Target, Droplets, Zap, BarChart3, Clock, Wallet, User, Crown } from 'lucide-react';
 
+// Format large numbers with K/M suffixes
+const formatCompactUsd = (value: number): string => {
+  if (value >= 1_000_000) {
+    return `$${(value / 1_000_000).toFixed(2)}M`;
+  }
+  if (value >= 1_000) {
+    return `$${(value / 1_000).toFixed(1)}K`;
+  }
+  return `$${value.toFixed(0)}`;
+};
 
 interface OrderBucket {
   priceLevel: number;
@@ -516,14 +526,13 @@ export default function Home() {
               <MetricCard
                 icon={BarChart3}
                 label="Volume 24h"
-                value={`$${(data.volume24h / 1000).toFixed(1)}K`}
-                subtitle={`6h: $${(data.volume6h / 1000).toFixed(1)}K`}
-                trend={data.priceChange24h}
+                value={formatCompactUsd(data.volume24h)}
+                subtitle={`6h: ${formatCompactUsd(data.volume6h)} · 1h: ${formatCompactUsd(data.volume1h)}`}
               />
               <MetricCard
                 icon={Droplets}
                 label="Liquidity"
-                value={`$${(data.liquidity / 1000).toFixed(1)}K`}
+                value={formatCompactUsd(data.liquidity)}
                 subtitle="Pool depth"
               />
               <MetricCard
