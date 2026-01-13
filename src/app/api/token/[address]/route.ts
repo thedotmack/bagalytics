@@ -1,0 +1,158 @@
+import { NextResponse } from 'next/server';
+import { BagsSDK } from '@bagsfm/bags-sdk';
+import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+
+// Initialize Bags SDK (lazy, cached)
+let bagsSDK: BagsSDK | null = null;
+
+function getBagsSDK(): BagsSDK | null {
+  if (bagsSDK) return bagsSDK;
+
+  const apiKey = process.env.BAGS_API_KEY;
+  const rpcUrl = process.env.SOLANA_RPC_URL;
+
+  if (!apiKey || !rpcUrl) {
+    console.warn('BAGS_API_KEY or SOLANA_RPC_URL not configured');
+    return null;
+  }
+
+  const connection = new Connection(rpcUrl);
+  bagsSDK = new BagsSDK(apiKey, connection, 'processed');
+  return bagsSDK;
+}
+
+// Token creator interface for Bags SDK response
+interface TokenCreator {
+  isCreator: boolean;
+  provider: string | null;
+  providerUsername: string | null;
+  username: string | null;
+  wallet: string;
+  pfp: string | null;
+  royaltyBps: number;
+}
+
+// Fetch lifetime fees using Bags SDK (returns SOL amount)
+async function fetchLifetimeFeesFromBagsSDK(tokenAddress: string): Promise<number> {
+  try {
+    const sdk = getBagsSDK();
+    if (!sdk) return 0;
+
+    const feesLamports = await sdk.state.getTokenLifetimeFees(new PublicKey(tokenAddress));
+    return feesLamports / LAMPORTS_PER_SOL;
+  } catch (error) {
+    console.warn('Bags SDK error:', error);
+    return 0;
+  }
+}
+
+// Fetch token creators using Bags SDK
+async function fetchTokenCreatorsFromBagsSDK(tokenAddress: string): Promise<TokenCreator[]> {
+  try {
+    const sdk = getBagsSDK();
+    if (!sdk) return [];
+    const creators = await sdk.state.getTokenCreators(new PublicKey(tokenAddress));
+    return creators.map(c => ({
+      isCreator: c.isCreator,
+      provider: c.provider ?? null,
+      providerUsername: c.providerUsername ?? null,
+      username: c.username ?? null,
+      wallet: c.wallet,
+      pfp: c.pfp ?? null,
+      royaltyBps: c.royaltyBps,
+    }));
+  } catch (error) {
+    console.warn('Failed to fetch token creators from Bags SDK:', error);
+    return [];
+  }
+}
+
+// Fetch SOL price in USD from DexScreener
+async function fetchSolPriceUsd(): Promise<number> {
+  try {
+    // SOL token address on Solana
+    const response = await fetch('https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112');
+    const data = await response.json();
+    if (data.pairs && data.pairs.length > 0) {
+      return parseFloat(data.pairs[0].priceUsd) || 0;
+    }
+    return 0;
+  } catch (error) {
+    console.warn('Failed to fetch SOL price:', error);
+    return 0;
+  }
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ address: string }> }
+) {
+  const { address } = await params;
+
+  try {
+    // Fetch from DexScreener, Bags SDK, SOL price, and token creators in parallel
+    const [dexScreenerResponse, lifetimeFeesSol, solPriceUsd, creators] = await Promise.all([
+      fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`),
+      fetchLifetimeFeesFromBagsSDK(address),
+      fetchSolPriceUsd(),
+      fetchTokenCreatorsFromBagsSDK(address)
+    ]);
+
+    const result = await dexScreenerResponse.json();
+
+    if (result.pairs && result.pairs.length > 0) {
+      const pair = result.pairs[0];
+      const volume24h = pair.volume?.h24 || 0;
+      const volume6h = pair.volume?.h6 || 0;
+      const volume1h = pair.volume?.h1 || 0;
+
+      // Calculate velocities for different time windows
+      const feeVelocity24h = (volume24h * 0.01) / 24;
+      const feeVelocity6h = (volume6h * 0.01) / 6;
+      const feeVelocity1h = volume1h * 0.01;
+
+      // Get pair creation date for token age display
+      const pairCreatedAt = pair.pairCreatedAt || null;
+      let tokenAgeHours = null;
+
+      if (pairCreatedAt) {
+        const createdDate = new Date(pairCreatedAt);
+        const now = new Date();
+        tokenAgeHours = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+      }
+
+      return NextResponse.json({
+        pairAddress: pair.pairAddress,
+        price: parseFloat(pair.priceUsd) || 0,
+        volume24h,
+        volume6h,
+        volume1h,
+        liquidity: pair.liquidity?.usd || 0,
+        priceChange24h: pair.priceChange?.h24 || 0,
+        txns24h: (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0),
+        buys24h: pair.txns?.h24?.buys || 0,
+        sells24h: pair.txns?.h24?.sells || 0,
+        marketCap: pair.marketCap || 0,
+        fees24h: volume24h * 0.01,
+        fees6h: volume6h * 0.01,
+        fees1h: volume1h * 0.01,
+        feeVelocity24h,
+        feeVelocity6h,
+        feeVelocity1h,
+        feeVelocity: feeVelocity24h, // Keep for backwards compatibility
+        totalFeesAccumulated: volume24h * 0.01,
+        pairCreatedAt,
+        tokenAgeHours,
+        lifetimeFeesSol, // Total creator fees in SOL
+        lifetimeFeesUsd: lifetimeFeesSol * solPriceUsd, // Total creator fees in USD
+        solPriceUsd, // Current SOL price for reference
+        creators // Token creators from Bags SDK
+      });
+    }
+
+    return NextResponse.json({ error: 'Token not found' }, { status: 404 });
+  } catch (error) {
+    console.error('DexScreener API error:', error);
+    return NextResponse.json({ error: 'Failed to fetch token data' }, { status: 500 });
+  }
+}
