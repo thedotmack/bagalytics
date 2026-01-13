@@ -653,7 +653,7 @@ export default function Home() {
             </Card>
 
             {/* Limit Order Fee Potential */}
-            {data && !limitOrderData.loading && (limitOrderData.sellBuckets.length > 0 || limitOrderData.buyBuckets.length > 0) && (
+            {data && (
               <Card className="border-zinc-700 bg-zinc-900 mt-8">
                 <CardHeader>
                   <CardTitle className="text-emerald-400 font-mono uppercase tracking-wider text-sm flex items-center gap-2">
@@ -665,8 +665,30 @@ export default function Home() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    {/* Summary */}
+                  {limitOrderData.loading && (
+                    <div className="flex items-center justify-center py-8">
+                      <Activity className="h-4 w-4 animate-spin text-emerald-400" />
+                      <span className="ml-2 text-zinc-400 text-sm">Loading limit orders...</span>
+                    </div>
+                  )}
+                  {!limitOrderData.loading && limitOrderData.error && (
+                    <Alert className="border-red-600 bg-red-950">
+                      <AlertDescription className="text-red-100 text-sm">
+                        <span className="font-semibold text-red-300">Error</span> — {limitOrderData.error}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  {!limitOrderData.loading && !limitOrderData.error &&
+                   limitOrderData.sellBuckets.length === 0 && limitOrderData.buyBuckets.length === 0 && (
+                    <div className="text-center py-6">
+                      <Target className="h-8 w-8 text-zinc-600 mx-auto mb-2" />
+                      <p className="text-zinc-500 text-sm">No open limit orders found</p>
+                    </div>
+                  )}
+                  {!limitOrderData.loading && !limitOrderData.error &&
+                   (limitOrderData.sellBuckets.length > 0 || limitOrderData.buyBuckets.length > 0) && (
+                    <div className="space-y-6">
+                      {/* Summary */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 bg-emerald-950/30 rounded-lg border border-emerald-800">
                         <div className="text-xs text-emerald-400 uppercase mb-1">If Pumps</div>
@@ -741,6 +763,7 @@ export default function Home() {
                       ))}
                     </div>
                   </div>
+                  )}
                 </CardContent>
               </Card>
             )}
