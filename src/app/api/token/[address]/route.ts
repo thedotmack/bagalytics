@@ -67,6 +67,62 @@ async function fetchTokenCreatorsFromBagsSDK(tokenAddress: string): Promise<Toke
   }
 }
 
+// Fetch hourly OHLCV data from Birdeye (last 24 hours)
+interface HourlyFee {
+  time: string;
+  fees: number;
+  volume: number;
+}
+
+async function fetchHourlyFeesFromBirdeye(tokenAddress: string): Promise<HourlyFee[]> {
+  const apiKey = process.env.BIRDEYE_API_KEY;
+  if (!apiKey) {
+    console.warn('BIRDEYE_API_KEY not configured');
+    return [];
+  }
+
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const oneDayAgo = now - 24 * 60 * 60;
+
+    const response = await fetch(
+      `https://public-api.birdeye.so/defi/ohlcv?address=${tokenAddress}&type=1H&time_from=${oneDayAgo}&time_to=${now}`,
+      {
+        headers: {
+          'X-API-KEY': apiKey,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.warn('Birdeye API error:', response.status);
+      return [];
+    }
+
+    const data = await response.json();
+
+    if (!data.data?.items || !Array.isArray(data.data.items)) {
+      return [];
+    }
+
+    return data.data.items.map((item: { unixTime: number; v: number }) => {
+      const date = new Date(item.unixTime * 1000);
+      const hour = date.getHours();
+      const timeLabel = hour === 0 ? '12AM' : hour < 12 ? `${hour}AM` : hour === 12 ? '12PM' : `${hour - 12}PM`;
+      const volume = item.v || 0;
+
+      return {
+        time: timeLabel,
+        fees: volume * 0.01,
+        volume,
+      };
+    });
+  } catch (error) {
+    console.warn('Failed to fetch Birdeye OHLCV:', error);
+    return [];
+  }
+}
+
 // Fetch SOL price in USD from DexScreener
 async function fetchSolPriceUsd(): Promise<number> {
   try {
@@ -90,12 +146,13 @@ export async function GET(
   const { address } = await params;
 
   try {
-    // Fetch from DexScreener, Bags SDK, SOL price, and token creators in parallel
-    const [dexScreenerResponse, lifetimeFeesSol, solPriceUsd, creators] = await Promise.all([
+    // Fetch from DexScreener, Bags SDK, SOL price, token creators, and Birdeye in parallel
+    const [dexScreenerResponse, lifetimeFeesSol, solPriceUsd, creators, hourlyFees] = await Promise.all([
       fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`),
       fetchLifetimeFeesFromBagsSDK(address),
       fetchSolPriceUsd(),
-      fetchTokenCreatorsFromBagsSDK(address)
+      fetchTokenCreatorsFromBagsSDK(address),
+      fetchHourlyFeesFromBirdeye(address)
     ]);
 
     const result = await dexScreenerResponse.json();
@@ -149,7 +206,8 @@ export async function GET(
         lifetimeFeesSol, // Total creator fees in SOL
         lifetimeFeesUsd: lifetimeFeesSol * solPriceUsd, // Total creator fees in USD
         solPriceUsd, // Current SOL price for reference
-        creators // Token creators from Bags SDK
+        creators, // Token creators from Bags SDK
+        hourlyFees // Real hourly fee data from Birdeye
       });
     }
 

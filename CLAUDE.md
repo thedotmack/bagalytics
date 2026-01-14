@@ -22,12 +22,10 @@ Bagalytics is a Next.js 16 app that tracks creator fees for Bags.fm tokens on So
    - DexScreener API for price, volume, liquidity, and transaction data
    - Bags SDK for lifetime fees and token creator information
    - SOL price conversion for USD calculations
-3. **Orders API** (`src/app/api/orders/[token]/route.ts`) - Fetches Jupiter limit orders and buckets them by price level to show potential fee earnings
 
 ### External Dependencies
 
 - **Bags SDK** (`@bagsfm/bags-sdk`) - Fetches lifetime creator fees and token creator data from Bags.fm on-chain state
-- **Jupiter Limit Order SDK** (`@jup-ag/limit-order-sdk`) - Queries all Jupiter limit orders to calculate fee potential at price levels
 - **DexScreener API** - Primary source for real-time token metrics (no API key required)
 
 ### Environment Variables

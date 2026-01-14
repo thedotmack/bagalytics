@@ -10,8 +10,6 @@
   },
   "dependencies": {
     "@bagsfm/bags-sdk": "^1.2.5",
-    "@jup-ag/limit-order-sdk": "^0.1.10",
-    "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "^1.98.4",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
