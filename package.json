@@ -11,6 +11,7 @@
   "dependencies": {
     "@bagsfm/bags-sdk": "^1.2.5",
     "@solana/web3.js": "^1.98.4",
+    "ioredis": "^5.9.1",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
     "react": "19.2.3",
