@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { BagsSDK } from '@bagsfm/bags-sdk';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { getCached } from '@/lib/redis';
 
 // Initialize Bags SDK (lazy, cached)
 let bagsSDK: BagsSDK | null = null;
@@ -34,37 +35,40 @@ interface TokenCreator {
 
 // Fetch lifetime fees using Bags SDK (returns SOL amount)
 async function fetchLifetimeFeesFromBagsSDK(tokenAddress: string): Promise<number> {
-  try {
-    const sdk = getBagsSDK();
-    if (!sdk) return 0;
+  const sdk = getBagsSDK();
+  if (!sdk) return 0;
 
-    const feesLamports = await sdk.state.getTokenLifetimeFees(new PublicKey(tokenAddress));
-    return feesLamports / LAMPORTS_PER_SOL;
-  } catch (error) {
-    console.warn('Bags SDK error:', error);
-    return 0;
-  }
+  return getCached(
+    `bags:fees:${tokenAddress}`,
+    async () => {
+      const feesLamports = await sdk.state.getTokenLifetimeFees(new PublicKey(tokenAddress));
+      return feesLamports / LAMPORTS_PER_SOL;
+    },
+    60
+  );
 }
 
 // Fetch token creators using Bags SDK
 async function fetchTokenCreatorsFromBagsSDK(tokenAddress: string): Promise<TokenCreator[]> {
-  try {
-    const sdk = getBagsSDK();
-    if (!sdk) return [];
-    const creators = await sdk.state.getTokenCreators(new PublicKey(tokenAddress));
-    return creators.map(c => ({
-      isCreator: c.isCreator,
-      provider: c.provider ?? null,
-      providerUsername: c.providerUsername ?? null,
-      username: c.username ?? null,
-      wallet: c.wallet,
-      pfp: c.pfp ?? null,
-      royaltyBps: c.royaltyBps,
-    }));
-  } catch (error) {
-    console.warn('Failed to fetch token creators from Bags SDK:', error);
-    return [];
-  }
+  const sdk = getBagsSDK();
+  if (!sdk) return [];
+
+  return getCached(
+    `bags:creators:${tokenAddress}`,
+    async () => {
+      const creators = await sdk.state.getTokenCreators(new PublicKey(tokenAddress));
+      return creators.map(c => ({
+        isCreator: c.isCreator,
+        provider: c.provider ?? null,
+        providerUsername: c.providerUsername ?? null,
+        username: c.username ?? null,
+        wallet: c.wallet,
+        pfp: c.pfp ?? null,
+        royaltyBps: c.royaltyBps,
+      }));
+    },
+    3600
+  );
 }
 
 // Fetch hourly OHLCV data from Birdeye (last 24 hours)
@@ -81,62 +85,63 @@ async function fetchHourlyFeesFromBirdeye(tokenAddress: string): Promise<HourlyF
     return [];
   }
 
-  try {
-    const now = Math.floor(Date.now() / 1000);
-    const oneDayAgo = now - 24 * 60 * 60;
+  return getCached(
+    `birdeye:ohlcv:${tokenAddress}`,
+    async () => {
+      const now = Math.floor(Date.now() / 1000);
+      const oneDayAgo = now - 24 * 60 * 60;
 
-    const response = await fetch(
-      `https://public-api.birdeye.so/defi/ohlcv?address=${tokenAddress}&type=1H&time_from=${oneDayAgo}&time_to=${now}`,
-      {
-        headers: {
-          'X-API-KEY': apiKey,
-        },
+      const response = await fetch(
+        `https://public-api.birdeye.so/defi/ohlcv?address=${tokenAddress}&type=1H&time_from=${oneDayAgo}&time_to=${now}`,
+        {
+          headers: {
+            'X-API-KEY': apiKey,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        console.warn('Birdeye API error:', response.status);
+        return [];
       }
-    );
 
-    if (!response.ok) {
-      console.warn('Birdeye API error:', response.status);
-      return [];
-    }
+      const data = await response.json();
 
-    const data = await response.json();
+      if (!data.data?.items || !Array.isArray(data.data.items)) {
+        return [];
+      }
 
-    if (!data.data?.items || !Array.isArray(data.data.items)) {
-      return [];
-    }
+      return data.data.items.map((item: { unixTime: number; v: number }) => {
+        const date = new Date(item.unixTime * 1000);
+        const hour = date.getHours();
+        const timeLabel = hour === 0 ? '12AM' : hour < 12 ? `${hour}AM` : hour === 12 ? '12PM' : `${hour - 12}PM`;
+        const volume = item.v || 0;
 
-    return data.data.items.map((item: { unixTime: number; v: number }) => {
-      const date = new Date(item.unixTime * 1000);
-      const hour = date.getHours();
-      const timeLabel = hour === 0 ? '12AM' : hour < 12 ? `${hour}AM` : hour === 12 ? '12PM' : `${hour - 12}PM`;
-      const volume = item.v || 0;
-
-      return {
-        time: timeLabel,
-        fees: volume * 0.01,
-        volume,
-      };
-    });
-  } catch (error) {
-    console.warn('Failed to fetch Birdeye OHLCV:', error);
-    return [];
-  }
+        return {
+          time: timeLabel,
+          fees: volume * 0.01,
+          volume,
+        };
+      });
+    },
+    300
+  );
 }
 
 // Fetch SOL price in USD from DexScreener
 async function fetchSolPriceUsd(): Promise<number> {
-  try {
-    // SOL token address on Solana
-    const response = await fetch('https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112');
-    const data = await response.json();
-    if (data.pairs && data.pairs.length > 0) {
-      return parseFloat(data.pairs[0].priceUsd) || 0;
-    }
-    return 0;
-  } catch (error) {
-    console.warn('Failed to fetch SOL price:', error);
-    return 0;
-  }
+  return getCached(
+    'dex:sol-price',
+    async () => {
+      const response = await fetch('https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112');
+      const data = await response.json();
+      if (data.pairs && data.pairs.length > 0) {
+        return parseFloat(data.pairs[0].priceUsd) || 0;
+      }
+      return 0;
+    },
+    60
+  );
 }
 
 export async function GET(
@@ -147,15 +152,22 @@ export async function GET(
 
   try {
     // Fetch from DexScreener, Bags SDK, SOL price, token creators, and Birdeye in parallel
-    const [dexScreenerResponse, lifetimeFeesSol, solPriceUsd, creators, hourlyFees] = await Promise.all([
-      fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`),
+    const [dexScreenerData, lifetimeFeesSol, solPriceUsd, creators, hourlyFees] = await Promise.all([
+      getCached(
+        `dex:token:${address}`,
+        async () => {
+          const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`);
+          return response.json();
+        },
+        30
+      ),
       fetchLifetimeFeesFromBagsSDK(address),
       fetchSolPriceUsd(),
       fetchTokenCreatorsFromBagsSDK(address),
       fetchHourlyFeesFromBirdeye(address)
     ]);
 
-    const result = await dexScreenerResponse.json();
+    const result = dexScreenerData;
 
     if (result.pairs && result.pairs.length > 0) {
       const pair = result.pairs[0];
