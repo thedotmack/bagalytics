@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Activity, DollarSign, Clock, Wallet, Copy, ExternalLink, RefreshCw } from "lucide-react";
+import { Activity, DollarSign, Clock, Wallet, Copy, ExternalLink, RefreshCw, Star } from "lucide-react";
 import Image from "next/image";
 import { TokenTicker } from "@/components/TokenTicker";
 
@@ -79,6 +79,7 @@ export default function Home() {
   const [data, setData] = useState<TokenData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [githubStars, setGithubStars] = useState<number | null>(null);
 
   // Fetch token data from our API route
   const fetchTokenData = async (ca: string): Promise<TokenData | null> => {
@@ -113,6 +114,18 @@ export default function Home() {
 
   useEffect(() => {
     analyze();
+  }, []);
+
+  // Fetch GitHub star count via server-side API (cached in Redis)
+  useEffect(() => {
+    fetch("/api/github-stars")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.stars !== null && data.stars !== undefined) {
+          setGithubStars(data.stars);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Handle token selection from ticker
@@ -183,12 +196,56 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right: Search input + button */}
-          <div className="flex gap-2">
-            <Input value={tokenCA} onChange={(e) => setTokenCA(e.target.value)} placeholder="Enter token contract address..." className="w-80 h-9 px-3 text-sm bg-zinc-900 border-zinc-700 rounded-lg font-mono placeholder:text-zinc-500 focus:border-neon-500 focus:ring-neon-500/20" />
-            <Button onClick={analyze} disabled={loading} className="h-9 px-4 text-sm rounded-lg bg-neon-600 hover:bg-neon-500 font-semibold text-black">
-              bagalyze
-            </Button>
+          {/* Right: Social links + Search input + button */}
+          <div className="flex items-center gap-3">
+            {/* Social Links */}
+            <div className="flex items-center gap-2">
+              {/* X (Twitter) */}
+              <a
+                href="https://x.com/Claude_Memory"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-10 h-10 text-zinc-500 hover:text-emerald-400 transition-colors"
+                title="Follow on X"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+              </a>
+              {/* Discord */}
+              <a
+                href="https://discord.gg/J4wttp9vDu"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-10 h-10 text-zinc-500 hover:text-emerald-400 transition-colors"
+                title="Join Discord"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+                </svg>
+              </a>
+              {/* GitHub with stars */}
+              <a
+                href="https://github.com/thedotmack/claude-mem"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 h-10 px-3 text-zinc-500 hover:text-emerald-400 transition-colors"
+                title="Star on GitHub"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                </svg>
+                <Star className="w-4 h-4" />
+                <span className="text-sm font-medium">{githubStars !== null ? (githubStars >= 1000 ? `${(githubStars / 1000).toFixed(1)}k` : githubStars) : "—"}</span>
+              </a>
+            </div>
+            {/* Search input + button */}
+            <div className="flex gap-2">
+              <Input value={tokenCA} onChange={(e) => setTokenCA(e.target.value)} placeholder="Enter token contract address..." className="w-80 h-9 px-3 text-sm bg-zinc-900 border-zinc-700 rounded-lg font-mono placeholder:text-zinc-500 focus:border-neon-500 focus:ring-neon-500/20" />
+              <Button onClick={analyze} disabled={loading} className="h-9 px-4 text-sm rounded-lg bg-neon-600 hover:bg-neon-500 font-semibold text-black">
+                bagalyze
+              </Button>
+            </div>
           </div>
         </header>
 
@@ -499,9 +556,9 @@ export default function Home() {
 
         {/* Token Creators */}
         {data && data.creators && data.creators.length > 0 && (
-          <div className="mb-6 text-center">
-            <h3 className="text-zinc-500 text-xs font-medium uppercase tracking-wider mb-3">Token Creators</h3>
-            <div className="flex gap-3 flex-wrap justify-center">
+          <div className="mb-8">
+            <h3 className="text-zinc-500 text-xs font-medium uppercase tracking-wider mb-4 text-center">Token Creators</h3>
+            <div className="flex gap-4 flex-wrap justify-center">
               {[...data.creators]
                 .sort((a, b) => (b.isCreator ? 1 : 0) - (a.isCreator ? 1 : 0))
                 .map((creator) => {
@@ -509,25 +566,28 @@ export default function Home() {
                   const truncatedWallet = `${creator.wallet.slice(0, 4)}...${creator.wallet.slice(-4)}`;
 
                   return (
-                    <div key={creator.wallet} className="flex items-center gap-3 px-3 py-2 bg-zinc-800/50 rounded-lg">
+                    <div key={creator.wallet} className="flex items-center gap-4 px-4 py-3 bg-zinc-900/80 border border-zinc-800 rounded-xl min-w-[280px]">
                       {creator.pfp ? (
                         /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={creator.pfp} alt={displayName} className="w-8 h-8 rounded-full" />
+                        <img src={creator.pfp} alt={displayName} className="w-11 h-11 rounded-full ring-2 ring-zinc-700" />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center">
-                          <span className="text-xs font-bold text-zinc-400">{displayName.charAt(0).toUpperCase()}</span>
+                        <div className="w-11 h-11 rounded-full bg-zinc-800 ring-2 ring-zinc-700 flex items-center justify-center">
+                          <span className="text-sm font-bold text-zinc-400">{displayName.charAt(0).toUpperCase()}</span>
                         </div>
                       )}
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-white text-sm">{displayName}</span>
-                          {creator.isCreator && <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] rounded">Creator</span>}
-                          {creator.provider && <span className="px-1.5 py-0.5 bg-zinc-700 text-zinc-400 text-[10px] rounded">{creator.provider}</span>}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="font-semibold text-white truncate">{displayName}</span>
+                          {creator.isCreator && <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] font-medium rounded shrink-0">Creator</span>}
                         </div>
-                        <span className="text-zinc-500 text-xs font-mono">{truncatedWallet}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-zinc-500 text-xs font-mono">{truncatedWallet}</span>
+                          {creator.provider && <span className="px-1.5 py-0.5 bg-zinc-800 text-zinc-500 text-[10px] rounded">{creator.provider}</span>}
+                        </div>
                       </div>
-                      <div className="ml-auto text-right">
-                        <span className="text-emerald-400 font-semibold text-sm" style={{ fontVariantNumeric: "tabular-nums" }}>{(creator.royaltyBps / 100).toFixed(2)}%</span>
+                      <div className="text-right pl-2">
+                        <span className="text-emerald-400 font-bold text-lg" style={{ fontVariantNumeric: "tabular-nums" }}>{(creator.royaltyBps / 100).toFixed(1)}%</span>
+                        <p className="text-zinc-600 text-[10px] uppercase">Royalty</p>
                       </div>
                     </div>
                   );
@@ -537,9 +597,16 @@ export default function Home() {
         )}
 
         {/* Footer */}
-        <footer className="text-center text-zinc-600 text-xs py-8">
-          bagalytics · Built for Bags.fm Creators ·{" "}
-          <a href="https://bags.fm/2TsmuYUrsctE57VLckZBYEEzdokUF8j8e1GavekWBAGS?ref=claudememory" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:text-emerald-400 ml-1">
+        <footer className="text-center text-zinc-500 text-sm py-10">
+          <a href="https://bags.fm/2TsmuYUrsctE57VLckZBYEEzdokUF8j8e1GavekWBAGS?ref=claudememory" target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-emerald-400 transition-colors">
+            bagalytics
+          </a>
+          {" · "}
+          <a href="https://bags.fm/2TsmuYUrsctE57VLckZBYEEzdokUF8j8e1GavekWBAGS?ref=claudememory" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition-colors">
+            Built for Bags.fm Creators
+          </a>
+          {" · "}
+          <a href="https://bags.fm/2TsmuYUrsctE57VLckZBYEEzdokUF8j8e1GavekWBAGS?ref=claudememory" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:text-emerald-400 transition-colors">
             Built with $CMEM
           </a>
         </footer>
