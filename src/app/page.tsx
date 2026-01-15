@@ -10,6 +10,16 @@ const defaultMetadata: Metadata = {
   description: "Track your 1% creator fees from Bags.fm token trading volume.",
 };
 
+// Get base URL for internal API calls - works in dev and production
+function getBaseUrl(): string {
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return process.env.NODE_ENV === "development"
+    ? "http://localhost:3000"
+    : "https://bagalytics.app";
+}
+
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const params = await searchParams;
   const tokenAddress = params.token;
@@ -21,7 +31,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   try {
     // Fetch token data to get name/symbol for metadata
     const response = await fetch(
-      `https://bagalytics.app/api/token/${tokenAddress}`,
+      `${getBaseUrl()}/api/token/${tokenAddress}`,
       { next: { revalidate: 60 } }
     );
 
