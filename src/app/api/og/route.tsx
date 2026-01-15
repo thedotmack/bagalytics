@@ -193,7 +193,7 @@ export async function GET(request: Request) {
               color: '#52525b',
             }}
           >
-            bagalytics.app
+            bagalytics.dev
           </div>
         </div>
       ),
@@ -206,11 +206,16 @@ export async function GET(request: Request) {
   }
 
   // Fetch token data from our API
-  const baseUrl = origin;
+  // Use production URL to avoid Edge runtime self-fetch issues
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : (origin || 'https://bagalytics.dev');
   let tokenData: TokenData | null = null;
 
   try {
-    const response = await fetch(`${baseUrl}/api/token/${address}`);
+    const response = await fetch(`${baseUrl}/api/token/${address}`, {
+      headers: { 'Accept': 'application/json' },
+    });
     if (response.ok) {
       tokenData = await response.json();
     }
@@ -597,7 +602,7 @@ export async function GET(request: Request) {
 
             {/* Domain */}
             <div style={{ fontSize: 32, color: '#71717a', fontWeight: 500 }}>
-              bagalytics.app
+              bagalytics.dev
             </div>
           </div>
         </div>
