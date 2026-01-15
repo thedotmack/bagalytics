@@ -350,8 +350,8 @@ export default function Home() {
       {data && data.hourlyFees && data.hourlyFees.length > 0 && (
         <div className="relative z-10 w-full h-64 sm:h-80 outline-none focus:outline-none select-none" tabIndex={-1}>
           {/* Edge fade overlays */}
-          <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-zinc-950 to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-zinc-950 to-transparent z-10 pointer-events-none" />
+          <div className="absolute left-0 top-0 bottom-0 w-12 sm:w-24 bg-gradient-to-r from-zinc-950 to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-12 sm:w-24 bg-gradient-to-l from-zinc-950 to-transparent z-10 pointer-events-none" />
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data.hourlyFees} margin={{ top: 50, right: 0, left: 0, bottom: 10 }}>
               <defs>
