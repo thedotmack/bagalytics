@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -80,6 +81,8 @@ interface BagalyticsClientProps {
 const DEFAULT_TOKEN_ADDRESS = "2TsmuYUrsctE57VLckZBYEEzdokUF8j8e1GavekWBAGS";
 
 export default function BagalyticsClient({ initialTokenAddress }: BagalyticsClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [tokenCA, setTokenCA] = useState(initialTokenAddress || DEFAULT_TOKEN_ADDRESS);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<TokenData | null>(null);
@@ -110,6 +113,7 @@ export default function BagalyticsClient({ initialTokenAddress }: BagalyticsClie
     if (tokenData) {
       setData(tokenData);
       setLastUpdated(new Date());
+      router.push(`?token=${tokenCA}`, { scroll: false });
     } else {
       setData(null);
       setError("Token not found or API unavailable");
@@ -143,6 +147,7 @@ export default function BagalyticsClient({ initialTokenAddress }: BagalyticsClie
       if (tokenData) {
         setData(tokenData);
         setLastUpdated(new Date());
+        router.push(`?token=${address}`, { scroll: false });
       } else {
         setData(null);
         setError("Token not found or API unavailable");
