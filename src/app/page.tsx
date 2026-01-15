@@ -486,17 +486,17 @@ export default function Home() {
                 const lifetimeVelocity = data.tokenAgeHours && data.tokenAgeHours > 0 ? data.lifetimeFeesUsd / data.tokenAgeHours : 0;
                 return (
                   <>
-                    <div className="grid grid-cols-5 gap-6">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5 md:gap-6">
                       <div>
                         <p className="text-zinc-500 text-xs uppercase mb-1">Lifetime Avg</p>
-                        <p className="text-2xl font-bold text-amber-400" style={{ fontVariantNumeric: "tabular-nums" }}>
+                        <p className="text-xl sm:text-2xl font-bold text-amber-400" style={{ fontVariantNumeric: "tabular-nums" }}>
                           ${lifetimeVelocity.toFixed(2)}
                           <span className="text-lg">/hr</span>
                         </p>
                       </div>
                       <div>
                         <p className="text-zinc-500 text-xs uppercase mb-1">24h Avg</p>
-                        <p className={`text-2xl font-bold ${data.feeVelocity > lifetimeVelocity ? "text-emerald-400" : "text-zinc-300"}`} style={{ fontVariantNumeric: "tabular-nums" }}>
+                        <p className={`text-xl sm:text-2xl font-bold ${data.feeVelocity > lifetimeVelocity ? "text-emerald-400" : "text-zinc-300"}`} style={{ fontVariantNumeric: "tabular-nums" }}>
                           ${data.feeVelocity.toFixed(2)}
                           <span className="text-lg">/hr</span>
                           {data.feeVelocity > lifetimeVelocity && <span className="text-sm ml-1">↑</span>}
@@ -504,20 +504,20 @@ export default function Home() {
                       </div>
                       <div>
                         <p className="text-zinc-500 text-xs uppercase mb-1">Weekly</p>
-                        <p className="text-2xl font-bold text-emerald-400" style={{ fontVariantNumeric: "tabular-nums" }}>${(lifetimeVelocity * 24 * 7).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                        <p className="text-xl sm:text-2xl font-bold text-emerald-400" style={{ fontVariantNumeric: "tabular-nums" }}>${(lifetimeVelocity * 24 * 7).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                       </div>
                       <div>
                         <p className="text-zinc-500 text-xs uppercase mb-1">Monthly</p>
-                        <p className="text-2xl font-bold text-emerald-400" style={{ fontVariantNumeric: "tabular-nums" }}>${(lifetimeVelocity * 24 * 30).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                        <p className="text-xl sm:text-2xl font-bold text-emerald-400" style={{ fontVariantNumeric: "tabular-nums" }}>${(lifetimeVelocity * 24 * 30).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                       </div>
                       <div>
                         <p className="text-zinc-500 text-xs uppercase mb-1">Yearly</p>
-                        <p className="text-2xl font-bold text-emerald-400" style={{ fontVariantNumeric: "tabular-nums" }}>${(lifetimeVelocity * 24 * 365).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                        <p className="text-xl sm:text-2xl font-bold text-emerald-400" style={{ fontVariantNumeric: "tabular-nums" }}>${(lifetimeVelocity * 24 * 365).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                       </div>
                     </div>
 
                     {/* Trading Activity Stats - distributed underneath */}
-                    <div className="mt-4 pt-4 border-t border-zinc-800 grid grid-cols-5 gap-6 text-sm">
+                    <div className="mt-4 pt-4 border-t border-zinc-800 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5 md:gap-6 text-sm">
                       <div>
                         <span className="text-zinc-500 block text-xs mb-1">Price Swing</span>
                         <span className={`font-mono font-medium ${data.priceChange24h >= 0 ? "text-emerald-400" : "text-red-400"}`} style={{ fontVariantNumeric: "tabular-nums" }}>
