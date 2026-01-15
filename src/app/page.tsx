@@ -197,7 +197,7 @@ export default function Home() {
           </div>
 
           {/* Right: Social links + Search input + button */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             {/* Social Links */}
             <div className="flex items-center gap-2">
               {/* X (Twitter) */}
@@ -205,7 +205,7 @@ export default function Home() {
                 href="https://x.com/Claude_Memory"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center w-10 h-10 text-zinc-500 hover:text-emerald-400 transition-colors"
+                className="hidden sm:flex items-center justify-center w-10 h-10 text-zinc-500 hover:text-emerald-400 transition-colors"
                 title="Follow on X"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -217,7 +217,7 @@ export default function Home() {
                 href="https://discord.gg/J4wttp9vDu"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center w-10 h-10 text-zinc-500 hover:text-emerald-400 transition-colors"
+                className="hidden sm:flex items-center justify-center w-10 h-10 text-zinc-500 hover:text-emerald-400 transition-colors"
                 title="Join Discord"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -240,8 +240,8 @@ export default function Home() {
               </a>
             </div>
             {/* Search input + button */}
-            <div className="flex gap-2">
-              <Input value={tokenCA} onChange={(e) => setTokenCA(e.target.value)} placeholder="Enter token contract address..." className="w-80 h-9 px-3 text-sm bg-zinc-900 border-zinc-700 rounded-lg font-mono placeholder:text-zinc-500 focus:border-neon-500 focus:ring-neon-500/20" />
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Input value={tokenCA} onChange={(e) => setTokenCA(e.target.value)} placeholder="Enter token contract address..." className="w-full sm:w-64 md:w-80 h-9 px-3 text-sm bg-zinc-900 border-zinc-700 rounded-lg font-mono placeholder:text-zinc-500 focus:border-neon-500 focus:ring-neon-500/20" />
               <Button onClick={analyze} disabled={loading} className="h-9 px-4 text-sm rounded-lg bg-neon-600 hover:bg-neon-500 font-semibold text-black">
                 bagalyze
               </Button>
