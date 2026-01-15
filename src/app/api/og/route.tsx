@@ -2,6 +2,15 @@ import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
 
+// Load Inter fonts for ImageResponse/Satori (must be TTF/OTF, not woff2)
+const interRegular = fetch(
+  new URL('../../../../public/fonts/Inter-Regular.ttf', import.meta.url)
+).then((res) => res.arrayBuffer());
+
+const interBold = fetch(
+  new URL('../../../../public/fonts/Inter-Bold.ttf', import.meta.url)
+).then((res) => res.arrayBuffer());
+
 // Token data response shape from our API
 interface TokenData {
   tokenName: string | null;
@@ -59,6 +68,27 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const address = searchParams.get('address');
 
+  // Load fonts for ImageResponse
+  const [interRegularData, interBoldData] = await Promise.all([
+    interRegular,
+    interBold,
+  ]);
+
+  const fonts = [
+    {
+      name: 'Inter',
+      data: interRegularData,
+      weight: 400 as const,
+      style: 'normal' as const,
+    },
+    {
+      name: 'Inter',
+      data: interBoldData,
+      weight: 700 as const,
+      style: 'normal' as const,
+    },
+  ];
+
   // Fetch the logo for all renders
   const logoBase64 = await fetchLogoAsBase64(origin);
 
@@ -76,7 +106,7 @@ export async function GET(request: Request) {
             height: '100%',
             backgroundColor: '#0a0a0a',
             color: '#ffffff',
-            fontFamily: 'system-ui, sans-serif',
+            fontFamily: 'Inter',
             position: 'relative',
           }}
         >
@@ -157,6 +187,7 @@ export async function GET(request: Request) {
       {
         width: 1200,
         height: 630,
+        fonts,
       }
     );
   }
@@ -204,7 +235,7 @@ export async function GET(request: Request) {
           height: '100%',
           backgroundColor: '#0a0a0a',
           color: '#ffffff',
-          fontFamily: 'system-ui, sans-serif',
+          fontFamily: 'Inter',
           padding: 50,
           position: 'relative',
         }}
@@ -471,6 +502,7 @@ export async function GET(request: Request) {
     {
       width: 1200,
       height: 630,
+      fonts,
     }
   );
 }
