@@ -375,22 +375,22 @@ export default function Home() {
 
       {/* Fee Stats Header - Above Chart */}
       {data && (
-        <div className="relative z-20 max-w-6xl mx-auto px-8 sm:px-10 lg:px-12 -mb-8 sm:-mb-12 md:-mb-16">
-          <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="relative z-20 max-w-6xl mx-auto px-4 sm:px-10 lg:px-12 -mb-8 sm:-mb-12 md:-mb-16">
+          <div className="flex items-end justify-between gap-4">
             {/* Left: Lifetime Fees */}
             <div>
               <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Lifetime Fees</p>
-              <p className="text-3xl sm:text-4xl md:text-5xl font-normal text-amber-400 font-mono tracking-tight" style={{ fontVariantNumeric: "tabular-nums" }}>{data.lifetimeFeesUsd > 0 ? `$${data.lifetimeFeesUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"}</p>
-              <p className="text-sm font-mono text-zinc-500 mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>{data.lifetimeFeesSol > 0 ? `${data.lifetimeFeesSol.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SOL` : ""}</p>
+              <p className="text-2xl sm:text-4xl md:text-5xl font-normal text-amber-400 font-mono tracking-tight" style={{ fontVariantNumeric: "tabular-nums" }}>{data.lifetimeFeesUsd > 0 ? `$${data.lifetimeFeesUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"}</p>
+              <p className="text-xs sm:text-sm font-mono text-zinc-500 mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>{data.lifetimeFeesSol > 0 ? `${data.lifetimeFeesSol.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SOL` : ""}</p>
             </div>
 
             {/* Right: 24h Fees */}
-            <div className="text-center sm:text-right">
+            <div className="text-right">
               <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">24h Fees</p>
-              <p className="text-3xl sm:text-4xl md:text-5xl font-normal text-emerald-400 font-mono tracking-tight" style={{ fontVariantNumeric: "tabular-nums" }}>${data.totalFeesAccumulated.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-              <p className="text-sm font-mono text-zinc-500 mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>
+              <p className="text-2xl sm:text-4xl md:text-5xl font-normal text-emerald-400 font-mono tracking-tight" style={{ fontVariantNumeric: "tabular-nums" }}>${data.totalFeesAccumulated.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+              <p className="text-xs sm:text-sm font-mono text-zinc-500 mt-1" style={{ fontVariantNumeric: "tabular-nums" }}>
                 <span className="text-emerald-400">${data.feeVelocity.toFixed(2)}/hr</span>
-                <span className="mx-2">·</span>
+                <span className="mx-1 sm:mx-2">·</span>
                 <span>6h: ${data.fees6h.toFixed(0)}</span>
               </p>
             </div>
