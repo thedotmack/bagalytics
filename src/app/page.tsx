@@ -566,7 +566,7 @@ export default function Home() {
                   const truncatedWallet = `${creator.wallet.slice(0, 4)}...${creator.wallet.slice(-4)}`;
 
                   return (
-                    <div key={creator.wallet} className="flex items-center gap-4 px-4 py-3 bg-zinc-900/80 border border-zinc-800 rounded-xl min-w-[280px]">
+                    <div key={creator.wallet} className="flex items-center gap-4 px-4 py-3 bg-zinc-900/80 border border-zinc-800 rounded-xl w-full sm:w-auto sm:min-w-[280px] max-w-[400px]">
                       {creator.pfp ? (
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img src={creator.pfp} alt={displayName} className="w-11 h-11 rounded-full ring-2 ring-zinc-700" />
