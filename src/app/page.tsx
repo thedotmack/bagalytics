@@ -17,7 +17,7 @@ function getBaseUrl(): string {
   }
   return process.env.NODE_ENV === "development"
     ? "http://localhost:3000"
-    : "https://bagalytics.app";
+    : "https://bagalytics.dev";
 }
 
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
@@ -59,7 +59,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
       openGraph: {
         title,
         description,
-        url: `https://bagalytics.app/?token=${tokenAddress}`,
+        url: `https://bagalytics.dev/?token=${tokenAddress}`,
         siteName: "Bagalytics",
         images: [
           {
