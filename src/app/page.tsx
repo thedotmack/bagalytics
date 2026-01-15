@@ -264,7 +264,7 @@ export default function Home() {
         {data && (
           <Card className="mb-2 p-5 rounded-xl bg-black/60">
             {/* Top row: Token identity + Purchase links */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-4">
                 {/* Token Image */}
                 {data.tokenImage ? (
@@ -298,20 +298,20 @@ export default function Home() {
               </div>
 
               {/* Purchase Links */}
-              <div className="flex items-center gap-3">
-                <a href={`https://bags.fm/${tokenCA}?ref=claudememory`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neon-600/20 text-neon text-sm font-medium hover:bg-neon-500/30 transition-colors">
+              <div className="flex flex-wrap justify-center md:justify-end gap-2 md:gap-3">
+                <a href={`https://bags.fm/${tokenCA}?ref=claudememory`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 rounded-lg bg-neon-600/20 text-neon text-xs md:text-sm font-medium hover:bg-neon-500/30 transition-colors">
                   Bags.fm
                   <ExternalLink className="w-3 h-3" />
                 </a>
-                <a href={`https://jup.ag/tokens/${tokenCA}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-sm font-medium hover:bg-zinc-700 transition-colors">
+                <a href={`https://jup.ag/tokens/${tokenCA}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs md:text-sm font-medium hover:bg-zinc-700 transition-colors">
                   Jupiter
                   <ExternalLink className="w-3 h-3" />
                 </a>
-                <a href={`https://photon-sol.tinyastro.io/en/lp/${tokenCA}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-sm font-medium hover:bg-zinc-700 transition-colors">
+                <a href={`https://photon-sol.tinyastro.io/en/lp/${tokenCA}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs md:text-sm font-medium hover:bg-zinc-700 transition-colors">
                   Photon
                   <ExternalLink className="w-3 h-3" />
                 </a>
-                <a href={`https://dexscreener.com/solana/${tokenCA}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-sm font-medium hover:bg-zinc-700 transition-colors">
+                <a href={`https://dexscreener.com/solana/${tokenCA}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs md:text-sm font-medium hover:bg-zinc-700 transition-colors">
                   DEXScreener
                   <ExternalLink className="w-3 h-3" />
                 </a>
