@@ -2,13 +2,17 @@ import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
 
-// Load Inter fonts for ImageResponse/Satori (must be TTF/OTF, not woff2)
+// Load fonts for ImageResponse/Satori (must be TTF/OTF, not woff2)
 const interRegular = fetch(
   new URL('../../../../public/fonts/Inter-Regular.ttf', import.meta.url)
 ).then((res) => res.arrayBuffer());
 
 const interBold = fetch(
   new URL('../../../../public/fonts/Inter-Bold.ttf', import.meta.url)
+).then((res) => res.arrayBuffer());
+
+const diplomataSC = fetch(
+  new URL('../../../../public/fonts/DiplomataSC-Regular.ttf', import.meta.url)
 ).then((res) => res.arrayBuffer());
 
 // Token data response shape from our API
@@ -21,6 +25,8 @@ interface TokenData {
   totalFeesAccumulated?: number;
   marketCap?: number;
   price?: number;
+  feeVelocity?: number; // $/hour
+  hourlyFees?: Array<{ time: string; fees: number }>;
 }
 
 // Convert external image URL to base64 data URL (required for ImageResponse)
@@ -69,9 +75,10 @@ export async function GET(request: Request) {
   const address = searchParams.get('address');
 
   // Load fonts for ImageResponse
-  const [interRegularData, interBoldData] = await Promise.all([
+  const [interRegularData, interBoldData, diplomataSCData] = await Promise.all([
     interRegular,
     interBold,
+    diplomataSC,
   ]);
 
   const fonts = [
@@ -85,6 +92,12 @@ export async function GET(request: Request) {
       name: 'Inter',
       data: interBoldData,
       weight: 700 as const,
+      style: 'normal' as const,
+    },
+    {
+      name: 'Diplomata SC',
+      data: diplomataSCData,
+      weight: 400 as const,
       style: 'normal' as const,
     },
   ];
@@ -114,22 +127,22 @@ export async function GET(request: Request) {
           <div
             style={{
               position: 'absolute',
-              top: '-100px',
-              left: '200px',
-              width: '400px',
-              height: '400px',
-              background: 'radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%)',
+              top: '-50px',
+              left: '150px',
+              width: '600px',
+              height: '600px',
+              background: 'radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, transparent 70%)',
               borderRadius: '50%',
             }}
           />
           <div
             style={{
               position: 'absolute',
-              bottom: '-50px',
-              right: '250px',
-              width: '300px',
-              height: '300px',
-              background: 'radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%)',
+              bottom: '-100px',
+              right: '200px',
+              width: '500px',
+              height: '500px',
+              background: 'radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, transparent 70%)',
               borderRadius: '50%',
             }}
           />
@@ -138,10 +151,10 @@ export async function GET(request: Request) {
           {logoBase64 && (
             <img
               src={logoBase64}
-              width={120}
-              height={120}
+              width={180}
+              height={180}
               style={{
-                marginBottom: 24,
+                marginBottom: 32,
               }}
             />
           )}
@@ -149,22 +162,22 @@ export async function GET(request: Request) {
           {/* Brand name */}
           <div
             style={{
-              fontSize: 72,
-              fontWeight: 'bold',
+              fontSize: 96,
+              fontFamily: 'Diplomata SC',
               color: '#10b981',
               letterSpacing: '0.05em',
-              textTransform: 'uppercase',
-              marginBottom: 24,
+              marginBottom: 28,
             }}
           >
-            BAGALYTICS
+            Bagalytics
           </div>
 
           {/* Tagline */}
           <div
             style={{
-              fontSize: 32,
-              color: '#9ca3af',
+              fontSize: 42,
+              color: '#a1a1aa',
+              fontWeight: 500,
             }}
           >
             Creator Fee Analytics for Bags.fm
@@ -174,10 +187,10 @@ export async function GET(request: Request) {
           <div
             style={{
               position: 'absolute',
-              bottom: 40,
-              right: 60,
-              fontSize: 24,
-              color: '#4b5563',
+              bottom: 32,
+              right: 48,
+              fontSize: 28,
+              color: '#52525b',
             }}
           >
             bagalytics.app
@@ -214,16 +227,38 @@ export async function GET(request: Request) {
   const displayName = tokenData?.tokenName || tokenData?.tokenSymbol || 'Unknown Token';
   const displaySymbol = tokenData?.tokenSymbol ? `$${tokenData.tokenSymbol}` : '';
 
-  // Format fee values
+  // Format fee values - focus on income metrics
   const lifetimeFeesFormatted = tokenData?.lifetimeFeesUsd && tokenData.lifetimeFeesUsd > 0
     ? formatCompactUsd(tokenData.lifetimeFeesUsd)
+    : null;
+  const lifetimeFeesSolFormatted = tokenData?.lifetimeFeesSol && tokenData.lifetimeFeesSol > 0
+    ? `${tokenData.lifetimeFeesSol.toFixed(2)} SOL`
     : null;
   const fees24hFormatted = tokenData?.totalFeesAccumulated && tokenData.totalFeesAccumulated > 0
     ? formatCompactUsd(tokenData.totalFeesAccumulated)
     : null;
-  const marketCapFormatted = tokenData?.marketCap && tokenData.marketCap > 0
+  const feeVelocityFormatted = tokenData?.feeVelocity && tokenData?.feeVelocity > 0
+    ? `$${tokenData.feeVelocity.toFixed(2)}/hr`
+    : null;
+  const volume24hFormatted = tokenData?.marketCap && tokenData.marketCap > 0
     ? formatCompactUsd(tokenData.marketCap)
     : null;
+
+  // Generate SVG path for hourly fees chart background
+  const hourlyFees = tokenData?.hourlyFees || [];
+  let chartPath = '';
+  if (hourlyFees.length > 1) {
+    const maxFee = Math.max(...hourlyFees.map(h => h.fees));
+    const chartWidth = 1200;
+    const chartHeight = 300;
+    const chartBottom = 630;
+    const points = hourlyFees.map((h, i) => {
+      const x = (i / (hourlyFees.length - 1)) * chartWidth;
+      const y = chartBottom - (h.fees / maxFee) * chartHeight;
+      return `${x},${y}`;
+    });
+    chartPath = `M0,${chartBottom} L${points.join(' L')} L${chartWidth},${chartBottom} Z`;
+  }
 
   return new ImageResponse(
     (
@@ -236,265 +271,334 @@ export async function GET(request: Request) {
           backgroundColor: '#0a0a0a',
           color: '#ffffff',
           fontFamily: 'Inter',
-          padding: 50,
           position: 'relative',
+          overflow: 'hidden',
         }}
       >
+        {/* Chart background - edge to edge */}
+        {chartPath && (
+          <svg
+            width="1200"
+            height="630"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              opacity: 0.12,
+            }}
+          >
+            <defs>
+              <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#10b981" stopOpacity="0.6" />
+                <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path d={chartPath} fill="url(#chartGradient)" />
+          </svg>
+        )}
+
         {/* Background gradient effects */}
         <div
           style={{
             position: 'absolute',
-            top: '-150px',
-            left: '100px',
+            top: '-100px',
+            left: '-100px',
             width: '500px',
             height: '500px',
-            background: 'radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%)',
             borderRadius: '50%',
           }}
         />
         <div
           style={{
             position: 'absolute',
-            bottom: '-100px',
-            right: '150px',
+            bottom: '-150px',
+            right: '-100px',
             width: '400px',
             height: '400px',
-            background: 'radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(245, 158, 11, 0.1) 0%, transparent 70%)',
             borderRadius: '50%',
           }}
         />
 
-        {/* Header with logo and brand */}
+        {/* Content container */}
         <div
           style={{
             display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-            marginBottom: 32,
-          }}
-        >
-          {logoBase64 && (
-            <img
-              src={logoBase64}
-              width={48}
-              height={48}
-            />
-          )}
-          <div
-            style={{
-              fontSize: 32,
-              fontWeight: 'bold',
-              color: '#10b981',
-              letterSpacing: '0.05em',
-              textTransform: 'uppercase',
-            }}
-          >
-            BAGALYTICS
-          </div>
-        </div>
-
-        {/* Main content - token image and name */}
-        <div
-          style={{
-            display: 'flex',
-            flex: 1,
             flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 20,
+            width: '100%',
+            height: '100%',
+            padding: '40px 56px',
+            position: 'relative',
           }}
         >
-          {/* Token image with emerald border */}
+          {/* Header: Token name left, Bagalytics branding right */}
           <div
             style={{
               display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
-              justifyContent: 'center',
-              width: 160,
-              height: 160,
-              borderRadius: 80,
-              backgroundColor: '#18181b',
-              border: '4px solid #10b981',
-              overflow: 'hidden',
-              boxShadow: '0 0 60px rgba(16, 185, 129, 0.3)',
+              marginBottom: 8,
             }}
           >
-            {tokenImageBase64 ? (
-              <img
-                src={tokenImageBase64}
-                width={160}
-                height={160}
+            {/* Token name only - symbol is centered below logo */}
+            <div
+              style={{
+                fontSize: 48,
+                fontWeight: 'bold',
+                color: '#ffffff',
+                maxWidth: '500px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {displayName}
+            </div>
+
+            {/* Bagalytics small branding */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              {logoBase64 && (
+                <img src={logoBase64} width={48} height={48} />
+              )}
+              <div
                 style={{
-                  objectFit: 'cover',
+                  fontSize: 24,
+                  fontFamily: 'Diplomata SC',
+                  color: '#10b981',
                 }}
-              />
-            ) : (
+              >
+                BAGALYTICS
+              </div>
+            </div>
+          </div>
+
+          {/* Main content: Left values - CENTER LOGO - Right values */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flex: 1,
+            }}
+          >
+            {/* LEFT: Lifetime Fees - PRIMARY metric in AMBER */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                width: '300px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 24,
+                  color: '#71717a',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.15em',
+                  marginBottom: 12,
+                  fontWeight: 500,
+                }}
+              >
+                LIFETIME FEES
+              </div>
+              <div
+                style={{
+                  fontSize: 72,
+                  fontWeight: 'bold',
+                  color: '#f59e0b',
+                  lineHeight: 1,
+                }}
+              >
+                {lifetimeFeesFormatted || '$0'}
+              </div>
+              {lifetimeFeesSolFormatted && (
+                <div
+                  style={{
+                    fontSize: 32,
+                    color: '#a1a1aa',
+                    marginTop: 12,
+                  }}
+                >
+                  {lifetimeFeesSolFormatted}
+                </div>
+              )}
+            </div>
+
+            {/* CENTER: Big Logo with Token Image + Symbol below */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 8,
+                position: 'relative',
+                top: -30,
+              }}
+            >
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: 64,
-                  fontWeight: 'bold',
-                  color: '#10b981',
+                  width: 320,
+                  height: 320,
+                  borderRadius: 160,
+                  backgroundColor: '#18181b',
+                  border: '6px solid #10b981',
+                  overflow: 'hidden',
+                  boxShadow: '0 0 100px rgba(16, 185, 129, 0.6)',
                 }}
               >
-                {displaySymbol.charAt(1) || displayName.charAt(0) || 'B'}
-              </div>
-            )}
-          </div>
-
-          {/* Token name */}
-          <div
-            style={{
-              fontSize: 48,
-              fontWeight: 'bold',
-              color: '#ffffff',
-              textAlign: 'center',
-              maxWidth: 800,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {displayName}
-          </div>
-
-          {/* Token symbol */}
-          {displaySymbol && (
-            <div
-              style={{
-                fontSize: 28,
-                color: '#9ca3af',
-              }}
-            >
-              {displaySymbol}
-            </div>
-          )}
-
-          {/* Stats row */}
-          {(lifetimeFeesFormatted || fees24hFormatted) && (
-            <div
-              style={{
-                display: 'flex',
-                gap: 80,
-                marginTop: 24,
-              }}
-            >
-              {/* Lifetime Fees */}
-              {lifetimeFeesFormatted && (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                  }}
-                >
+                {tokenImageBase64 ? (
+                  <img
+                    src={tokenImageBase64}
+                    width={320}
+                    height={320}
+                    style={{ objectFit: 'cover' }}
+                  />
+                ) : (
                   <div
                     style={{
-                      fontSize: 14,
-                      color: '#71717a',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.1em',
-                      marginBottom: 8,
-                    }}
-                  >
-                    LIFETIME FEES
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 42,
-                      fontWeight: 'bold',
-                      color: '#f59e0b',
-                    }}
-                  >
-                    {lifetimeFeesFormatted}
-                  </div>
-                </div>
-              )}
-
-              {/* 24h Fees */}
-              {fees24hFormatted && (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 14,
-                      color: '#71717a',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.1em',
-                      marginBottom: 8,
-                    }}
-                  >
-                    24H FEES
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 42,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 128,
                       fontWeight: 'bold',
                       color: '#10b981',
                     }}
                   >
-                    {fees24hFormatted}
+                    {displaySymbol.charAt(1) || displayName.charAt(0) || 'B'}
                   </div>
-                </div>
-              )}
-
-              {/* Market Cap */}
-              {marketCapFormatted && (
+                )}
+              </div>
+              {/* Token symbol centered under image - bold and bright */}
+              {displaySymbol && (
                 <div
                   style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
+                    fontSize: 48,
+                    fontWeight: 'bold',
+                    color: '#ffffff',
                   }}
                 >
-                  <div
-                    style={{
-                      fontSize: 14,
-                      color: '#71717a',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.1em',
-                      marginBottom: 8,
-                    }}
-                  >
-                    MARKET CAP
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 42,
-                      fontWeight: 'bold',
-                      color: '#ffffff',
-                    }}
-                  >
-                    {marketCapFormatted}
-                  </div>
+                  {displaySymbol}
                 </div>
               )}
             </div>
-          )}
-        </div>
 
-        {/* Footer */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            marginTop: 20,
-          }}
-        >
+            {/* RIGHT: 24h Fees - secondary metric in GREEN */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+                width: '300px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 24,
+                  color: '#71717a',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.15em',
+                  marginBottom: 12,
+                  fontWeight: 500,
+                }}
+              >
+                24H FEES
+              </div>
+              <div
+                style={{
+                  fontSize: 72,
+                  fontWeight: 'bold',
+                  color: '#10b981',
+                  lineHeight: 1,
+                }}
+              >
+                {fees24hFormatted || '$0'}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom row: Fee Velocity and Market Cap - MUCH BIGGER FONTS */}
           <div
             style={{
-              fontSize: 22,
-              color: '#4b5563',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingTop: 28,
+              borderTop: '1px solid #27272a',
             }}
           >
-            bagalytics.app
+            {/* Fee Velocity */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 28,
+                  color: '#71717a',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                }}
+              >
+                FEE VELOCITY
+              </div>
+              <div
+                style={{
+                  fontSize: 36,
+                  fontWeight: 'bold',
+                  color: '#10b981',
+                }}
+              >
+                {feeVelocityFormatted || 'N/A'}
+              </div>
+            </div>
+
+            {/* Market Cap */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 28,
+                  color: '#71717a',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                }}
+              >
+                MCAP
+              </div>
+              <div
+                style={{
+                  fontSize: 36,
+                  fontWeight: 'bold',
+                  color: '#f59e0b',
+                }}
+              >
+                {volume24hFormatted || 'N/A'}
+              </div>
+            </div>
+
+            {/* Domain */}
+            <div style={{ fontSize: 32, color: '#71717a', fontWeight: 500 }}>
+              bagalytics.app
+            </div>
           </div>
         </div>
       </div>
