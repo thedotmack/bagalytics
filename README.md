@@ -1,5 +1,7 @@
 # Bagalytics
 
+![Bagalytics](public/bagalytics-share.jpg)
+
 Real-time creator fee analytics for [Bags.fm](https://bags.fm) tokens on Solana.
 
 Tracks the 1% creator fee on token trading volume, showing lifetime fees, hourly breakdowns, and fee velocity metrics.

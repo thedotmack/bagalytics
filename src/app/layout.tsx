@@ -22,10 +22,33 @@ const diplomataSC = Diplomata_SC({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://bagalytics.app"),
   title: "Bagalytics | Creator Fee Analytics",
   description: "Track your 1% creator fees from Bags.fm token trading volume. Real-time analytics, projections, and insights for token creators.",
   keywords: ["bags.fm", "creator fees", "solana", "token analytics", "crypto"],
   authors: [{ name: "Bagalytics" }],
+  openGraph: {
+    title: "Bagalytics | Creator Fee Analytics",
+    description: "Track your 1% creator fees from Bags.fm token trading volume. Real-time analytics, projections, and insights for token creators.",
+    url: "https://bagalytics.app",
+    siteName: "Bagalytics",
+    images: [
+      {
+        url: "/bagalytics-share.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Bagalytics - Creator Fee Analytics for Bags.fm",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Bagalytics | Creator Fee Analytics",
+    description: "Track your 1% creator fees from Bags.fm token trading volume.",
+    images: ["/bagalytics-share.jpg"],
+  },
 };
 
 export const viewport: Viewport = {
