@@ -10,6 +10,43 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-neon: #02ff40;
+  --color-neon-950: #001a08;
+  --color-neon-900: #003311;
+  --color-neon-600: #02cc33;
+  --color-neon-500: #02ff40;
+  --color-neon-400: #02ff40;
+}
+
+/* Marquee animations */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% - var(--gap)));
+  }
+}
+
+@keyframes marquee-vertical {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(-100% - var(--gap)));
+  }
+}
+
+.animate-marquee {
+  animation: marquee var(--duration) infinite linear;
+}
+
+.animate-marquee-vertical {
+  animation: marquee-vertical var(--duration) linear infinite;
+}
+
+.group:hover .marquee-pause-on-hover {
+  animation-play-state: paused;
 }
 
 @media (prefers-color-scheme: dark) {

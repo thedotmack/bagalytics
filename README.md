@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bagalytics
 
-## Getting Started
+Real-time creator fee analytics for [Bags.fm](https://bags.fm) tokens on Solana.
 
-First, run the development server:
+Tracks the 1% creator fee on token trading volume, showing lifetime fees, hourly breakdowns, and fee velocity metrics.
+
+## Features
+
+- **Lifetime Fee Tracking** - Total creator fees accumulated in SOL and USD
+- **Hourly Fee Chart** - Visual breakdown of fees over the last 24 hours
+- **Fee Velocity** - Track fee generation rate per hour/minute/second
+- **Fee Projections** - Weekly, monthly, and yearly projections based on current activity
+- **Trading Activity** - Volume, transactions, buy/sell ratio, price changes
+- **Token Creators** - View creator wallets and royalty splits
+
+## Quick Start
 
 ```bash
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your API keys
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) and enter a Bags.fm token address.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SOLANA_RPC_URL` | Yes | Solana RPC endpoint (Helius, QuickNode, etc.) |
+| `BAGS_API_KEY` | Yes | Bags.fm API key for lifetime fees |
+| `BIRDEYE_API_KEY` | Yes | Birdeye API key for hourly volume data |
+| `REDIS_URL` | No | Redis URL for caching (defaults to `redis://localhost:6379`) |
 
-## Learn More
+## Docker Deployment
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Build and run with Docker Compose
+docker compose up -d
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Or build manually
+docker build -t bagalytics .
+docker run -p 3000:3000 --env-file .env.local bagalytics
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+For Coolify: Connect your repo and set environment variables. Coolify auto-detects the Dockerfile.
 
-## Deploy on Vercel
+## Tech Stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Next.js 16** - React framework with App Router
+- **Bags SDK** - Fetches lifetime creator fees from on-chain state
+- **DexScreener API** - Real-time price, volume, and liquidity data
+- **Birdeye API** - Hourly OHLCV data for fee charts
+- **Redis** - Caching layer for API responses
+- **Recharts** - Chart visualizations
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## API Endpoints
+
+- `GET /api/token/[address]` - Full token analytics
+- `GET /api/trending` - Trending Bags.fm tokens
+
+## License
+
+MIT

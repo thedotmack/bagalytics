@@ -78,7 +78,13 @@ interface HourlyFee {
   volume: number;
 }
 
-async function fetchHourlyFeesFromBirdeye(tokenAddress: string): Promise<HourlyFee[]> {
+// Raw Birdeye OHLCV data (needs normalization against DexScreener volume)
+interface RawBirdeyeOHLCV {
+  time: string;
+  rawVolume: number;
+}
+
+async function fetchRawBirdeyeOHLCV(tokenAddress: string): Promise<RawBirdeyeOHLCV[]> {
   const apiKey = process.env.BIRDEYE_API_KEY;
   if (!apiKey) {
     console.warn('BIRDEYE_API_KEY not configured');
@@ -115,17 +121,55 @@ async function fetchHourlyFeesFromBirdeye(tokenAddress: string): Promise<HourlyF
         const date = new Date(item.unixTime * 1000);
         const hour = date.getHours();
         const timeLabel = hour === 0 ? '12AM' : hour < 12 ? `${hour}AM` : hour === 12 ? '12PM' : `${hour - 12}PM`;
-        const volume = item.v || 0;
 
         return {
           time: timeLabel,
-          fees: volume * 0.01,
-          volume,
+          rawVolume: item.v || 0,
         };
       });
     },
     300
   );
+}
+
+// Normalize Birdeye hourly data to match DexScreener's accurate 24h USD volume
+// Falls back to synthetic even distribution if Birdeye data unavailable
+function normalizeHourlyFees(rawData: RawBirdeyeOHLCV[], dexScreenerVolume24h: number): HourlyFee[] {
+  if (dexScreenerVolume24h === 0) return [];
+
+  // If Birdeye has data, normalize it
+  if (rawData.length > 0) {
+    const totalRawVolume = rawData.reduce((sum, item) => sum + item.rawVolume, 0);
+    if (totalRawVolume > 0) {
+      const scaleFactor = dexScreenerVolume24h / totalRawVolume;
+      return rawData.map(item => {
+        const normalizedVolume = item.rawVolume * scaleFactor;
+        return {
+          time: item.time,
+          fees: normalizedVolume * 0.01,
+          volume: normalizedVolume,
+        };
+      });
+    }
+  }
+
+  // Fallback: generate synthetic hourly data from DexScreener 24h volume
+  const avgHourlyVolume = dexScreenerVolume24h / 24;
+  const now = new Date();
+  const hours: HourlyFee[] = [];
+
+  for (let i = 23; i >= 0; i--) {
+    const hourDate = new Date(now.getTime() - i * 60 * 60 * 1000);
+    const hour = hourDate.getHours();
+    const timeLabel = hour === 0 ? '12AM' : hour < 12 ? `${hour}AM` : hour === 12 ? '12PM' : `${hour - 12}PM`;
+    hours.push({
+      time: timeLabel,
+      fees: avgHourlyVolume * 0.01,
+      volume: avgHourlyVolume,
+    });
+  }
+
+  return hours;
 }
 
 // Fetch SOL price in USD from DexScreener
@@ -152,7 +196,7 @@ export async function GET(
 
   try {
     // Fetch from DexScreener, Bags SDK, SOL price, token creators, and Birdeye in parallel
-    const [dexScreenerData, lifetimeFeesSol, solPriceUsd, creators, hourlyFees] = await Promise.all([
+    const [dexScreenerData, lifetimeFeesSol, solPriceUsd, creators, rawBirdeyeData] = await Promise.all([
       getCached(
         `dex:token:${address}`,
         async () => {
@@ -164,7 +208,7 @@ export async function GET(
       fetchLifetimeFeesFromBagsSDK(address),
       fetchSolPriceUsd(),
       fetchTokenCreatorsFromBagsSDK(address),
-      fetchHourlyFeesFromBirdeye(address)
+      fetchRawBirdeyeOHLCV(address)
     ]);
 
     const result = dexScreenerData;
@@ -172,6 +216,9 @@ export async function GET(
     if (result.pairs && result.pairs.length > 0) {
       const pair = result.pairs[0];
       const volume24h = pair.volume?.h24 || 0;
+
+      // Normalize Birdeye hourly data to match DexScreener's accurate USD totals
+      const hourlyFees = normalizeHourlyFees(rawBirdeyeData, volume24h);
       const volume6h = pair.volume?.h6 || 0;
       const volume1h = pair.volume?.h1 || 0;
 
@@ -200,6 +247,9 @@ export async function GET(
         volume6h,
         volume1h,
         liquidity: pair.liquidity?.usd || 0,
+        priceChange5m: pair.priceChange?.m5 || 0,
+        priceChange1h: pair.priceChange?.h1 || 0,
+        priceChange6h: pair.priceChange?.h6 || 0,
         priceChange24h: pair.priceChange?.h24 || 0,
         txns24h: (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0),
         buys24h: pair.txns?.h24?.buys || 0,
