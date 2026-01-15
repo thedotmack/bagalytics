@@ -403,9 +403,9 @@ export default function Home() {
       {/* Metrics row below chart */}
       {data && (
         <div className="relative z-10 max-w-6xl mx-auto px-8 sm:px-10 lg:px-13 mt-2">
-          <div className="flex items-end justify-between py-3 border-t border-zinc-700/50">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between py-3 border-t border-zinc-700/50">
             {/* Left: Static metrics */}
-            <div className="flex items-end gap-8">
+            <div className="grid grid-cols-2 gap-4 sm:flex sm:items-end sm:gap-8">
               <div>
                 <p className="text-zinc-500 text-xs uppercase mb-1">Market Cap</p>
                 <p className="text-lg font-semibold text-amber-400" style={{ fontVariantNumeric: "tabular-nums" }}>
@@ -435,7 +435,7 @@ export default function Home() {
             {/* Right: Price Changes */}
             <div>
               <p className="text-zinc-500 text-xs uppercase mb-2">% Change</p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 justify-center sm:justify-end">
                 <div className={`px-2.5 py-1 rounded ${data.priceChange5m >= 0 ? "bg-emerald-500/15" : "bg-red-500/15"}`}>
                   <span className="text-zinc-400 text-xs mr-1.5">5m</span>
                   <span className={`font-mono font-semibold ${data.priceChange5m >= 0 ? "text-emerald-400" : "text-red-400"}`} style={{ fontVariantNumeric: "tabular-nums" }}>
