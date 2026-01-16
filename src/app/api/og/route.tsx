@@ -206,10 +206,8 @@ export async function GET(request: Request) {
   }
 
   // Fetch token data from our API
-  // Use production URL to avoid Edge runtime self-fetch issues
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : (origin || 'https://bagalytics.dev');
+  // Use origin (the actual request domain) to ensure we hit the same deployment
+  const baseUrl = origin || 'https://bagalytics.dev';
   let tokenData: TokenData | null = null;
 
   try {
