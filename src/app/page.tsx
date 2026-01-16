@@ -12,34 +12,62 @@ const defaultMetadata: Metadata = {
 
 // Get base URL for internal API calls - works in dev and production
 function getBaseUrl(): string {
+  console.log('[PAGE] getBaseUrl called:', {
+    VERCEL_URL: process.env.VERCEL_URL || 'NOT SET',
+    NODE_ENV: process.env.NODE_ENV
+  });
   if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
+    const url = `https://${process.env.VERCEL_URL}`;
+    console.log('[PAGE] Using VERCEL_URL:', url);
+    return url;
   }
-  return process.env.NODE_ENV === "development"
+  const url = process.env.NODE_ENV === "development"
     ? "http://localhost:3000"
     : "https://bagalytics.dev";
+  console.log('[PAGE] Using fallback URL:', url);
+  return url;
 }
 
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const params = await searchParams;
   const tokenAddress = params.token;
 
+  console.log('[PAGE-METADATA] ========== GENERATING METADATA ==========');
+  console.log('[PAGE-METADATA] Token address:', tokenAddress || 'NONE');
+
   if (!tokenAddress) {
+    console.log('[PAGE-METADATA] No token address, returning default metadata');
     return defaultMetadata;
   }
 
   try {
+    const baseUrl = getBaseUrl();
+    const apiUrl = `${baseUrl}/api/token/${tokenAddress}`;
+    console.log('[PAGE-METADATA] Fetching token data from:', apiUrl);
+
     // Fetch token data to get name/symbol for metadata
-    const response = await fetch(
-      `${getBaseUrl()}/api/token/${tokenAddress}`,
-      { next: { revalidate: 60 } }
-    );
+    const fetchStart = Date.now();
+    const response = await fetch(apiUrl, { next: { revalidate: 60 } });
+
+    console.log('[PAGE-METADATA] Token API response:', {
+      status: response.status,
+      ok: response.ok,
+      duration: Date.now() - fetchStart
+    });
 
     if (!response.ok) {
+      console.log('[PAGE-METADATA] API not OK, returning default metadata');
       return defaultMetadata;
     }
 
     const tokenData = await response.json();
+    console.log('[PAGE-METADATA] Token data received:', {
+      tokenName: tokenData.tokenName,
+      tokenSymbol: tokenData.tokenSymbol,
+      lifetimeFeesUsd: tokenData.lifetimeFeesUsd,
+      totalFeesAccumulated: tokenData.totalFeesAccumulated
+    });
+
     const tokenName = tokenData.tokenName || tokenData.tokenSymbol || "Token";
     const lifetimeFees = tokenData.lifetimeFeesUsd
       ? `$${tokenData.lifetimeFeesUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -52,6 +80,9 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
     const description = lifetimeFees && fees24h
       ? `${tokenName} has earned ${lifetimeFees} lifetime fees (${fees24h} in 24h). Track creator fees on Bagalytics.`
       : `Track creator fees for ${tokenName} on Bagalytics.`;
+
+    console.log('[PAGE-METADATA] Generated metadata:', { title, description });
+    console.log('[PAGE-METADATA] OG image URL:', `/api/og?address=${tokenAddress}`);
 
     return {
       title,
@@ -80,7 +111,8 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
       },
     };
   } catch (error) {
-    console.error("Error generating metadata:", error);
+    console.error("[PAGE-METADATA] Error generating metadata:", error instanceof Error ? error.message : error);
+    console.error("[PAGE-METADATA] Stack:", error instanceof Error ? error.stack : 'no stack');
     return defaultMetadata;
   }
 }

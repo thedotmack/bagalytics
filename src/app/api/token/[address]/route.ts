@@ -7,18 +7,27 @@ import { getCached } from '@/lib/redis';
 let bagsSDK: BagsSDK | null = null;
 
 function getBagsSDK(): BagsSDK | null {
+  console.log('[TOKEN-API] getBagsSDK called, existing:', !!bagsSDK);
   if (bagsSDK) return bagsSDK;
 
   const apiKey = process.env.BAGS_API_KEY;
   const rpcUrl = process.env.SOLANA_RPC_URL;
 
+  console.log('[TOKEN-API] Environment check:', {
+    hasBagsApiKey: !!apiKey,
+    hasSolanaRpcUrl: !!rpcUrl,
+    rpcUrlPrefix: rpcUrl ? rpcUrl.substring(0, 30) + '...' : 'NOT SET'
+  });
+
   if (!apiKey || !rpcUrl) {
-    console.warn('BAGS_API_KEY or SOLANA_RPC_URL not configured');
+    console.warn('[TOKEN-API] BAGS_API_KEY or SOLANA_RPC_URL not configured');
     return null;
   }
 
+  console.log('[TOKEN-API] Creating Solana connection and BagsSDK');
   const connection = new Connection(rpcUrl);
   bagsSDK = new BagsSDK(apiKey, connection, 'processed');
+  console.log('[TOKEN-API] BagsSDK initialized successfully');
   return bagsSDK;
 }
 
@@ -35,14 +44,21 @@ interface TokenCreator {
 
 // Fetch lifetime fees using Bags SDK (returns SOL amount)
 async function fetchLifetimeFeesFromBagsSDK(tokenAddress: string): Promise<number> {
+  console.log('[TOKEN-API] fetchLifetimeFeesFromBagsSDK:', tokenAddress);
   const sdk = getBagsSDK();
-  if (!sdk) return 0;
+  if (!sdk) {
+    console.log('[TOKEN-API] No SDK available, returning 0 for lifetime fees');
+    return 0;
+  }
 
   return getCached(
     `bags:fees:${tokenAddress}`,
     async () => {
+      console.log('[TOKEN-API] Fetching lifetime fees from Bags SDK...');
       const feesLamports = await sdk.state.getTokenLifetimeFees(new PublicKey(tokenAddress));
-      return feesLamports / LAMPORTS_PER_SOL;
+      const feesSol = feesLamports / LAMPORTS_PER_SOL;
+      console.log('[TOKEN-API] Lifetime fees:', { feesLamports, feesSol });
+      return feesSol;
     },
     60
   );
@@ -50,13 +66,19 @@ async function fetchLifetimeFeesFromBagsSDK(tokenAddress: string): Promise<numbe
 
 // Fetch token creators using Bags SDK
 async function fetchTokenCreatorsFromBagsSDK(tokenAddress: string): Promise<TokenCreator[]> {
+  console.log('[TOKEN-API] fetchTokenCreatorsFromBagsSDK:', tokenAddress);
   const sdk = getBagsSDK();
-  if (!sdk) return [];
+  if (!sdk) {
+    console.log('[TOKEN-API] No SDK available, returning empty creators array');
+    return [];
+  }
 
   return getCached(
     `bags:creators:${tokenAddress}`,
     async () => {
+      console.log('[TOKEN-API] Fetching token creators from Bags SDK...');
       const creators = await sdk.state.getTokenCreators(new PublicKey(tokenAddress));
+      console.log('[TOKEN-API] Token creators found:', creators.length);
       return creators.map(c => ({
         isCreator: c.isCreator,
         provider: c.provider ?? null,
@@ -85,9 +107,10 @@ interface RawBirdeyeOHLCV {
 }
 
 async function fetchRawBirdeyeOHLCV(tokenAddress: string): Promise<RawBirdeyeOHLCV[]> {
+  console.log('[TOKEN-API] fetchRawBirdeyeOHLCV:', tokenAddress);
   const apiKey = process.env.BIRDEYE_API_KEY;
   if (!apiKey) {
-    console.warn('BIRDEYE_API_KEY not configured');
+    console.warn('[TOKEN-API] BIRDEYE_API_KEY not configured');
     return [];
   }
 
@@ -96,24 +119,26 @@ async function fetchRawBirdeyeOHLCV(tokenAddress: string): Promise<RawBirdeyeOHL
     async () => {
       const now = Math.floor(Date.now() / 1000);
       const oneDayAgo = now - 24 * 60 * 60;
+      const url = `https://public-api.birdeye.so/defi/ohlcv?address=${tokenAddress}&type=1H&time_from=${oneDayAgo}&time_to=${now}`;
 
-      const response = await fetch(
-        `https://public-api.birdeye.so/defi/ohlcv?address=${tokenAddress}&type=1H&time_from=${oneDayAgo}&time_to=${now}`,
-        {
-          headers: {
-            'X-API-KEY': apiKey,
-          },
-        }
-      );
+      console.log('[TOKEN-API] Fetching Birdeye OHLCV...');
+      const response = await fetch(url, {
+        headers: {
+          'X-API-KEY': apiKey,
+        },
+      });
 
+      console.log('[TOKEN-API] Birdeye response status:', response.status);
       if (!response.ok) {
-        console.warn('Birdeye API error:', response.status);
+        console.warn('[TOKEN-API] Birdeye API error:', response.status, await response.text().catch(() => 'no body'));
         return [];
       }
 
       const data = await response.json();
+      console.log('[TOKEN-API] Birdeye data items:', data.data?.items?.length || 0);
 
       if (!data.data?.items || !Array.isArray(data.data.items)) {
+        console.log('[TOKEN-API] No Birdeye items found');
         return [];
       }
 
@@ -193,14 +218,30 @@ export async function GET(
   { params }: { params: Promise<{ address: string }> }
 ) {
   const { address } = await params;
+  const requestStart = Date.now();
+
+  console.log('[TOKEN-API] ========== REQUEST START ==========');
+  console.log('[TOKEN-API] Request URL:', request.url);
+  console.log('[TOKEN-API] Token address:', address);
+  console.log('[TOKEN-API] Environment check at request time:', {
+    REDIS_URL: !!process.env.REDIS_URL,
+    BAGS_API_KEY: !!process.env.BAGS_API_KEY,
+    SOLANA_RPC_URL: !!process.env.SOLANA_RPC_URL,
+    BIRDEYE_API_KEY: !!process.env.BIRDEYE_API_KEY,
+    NODE_ENV: process.env.NODE_ENV,
+    VERCEL_URL: process.env.VERCEL_URL || 'NOT SET',
+  });
 
   try {
+    console.log('[TOKEN-API] Starting parallel fetches...');
     // Fetch from DexScreener, Bags SDK, SOL price, token creators, and Birdeye in parallel
     const [dexScreenerData, lifetimeFeesSol, solPriceUsd, creators, rawBirdeyeData] = await Promise.all([
       getCached(
         `dex:token:${address}`,
         async () => {
+          console.log('[TOKEN-API] Fetching from DexScreener...');
           const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`);
+          console.log('[TOKEN-API] DexScreener response status:', response.status);
           return response.json();
         },
         30
@@ -210,6 +251,15 @@ export async function GET(
       fetchTokenCreatorsFromBagsSDK(address),
       fetchRawBirdeyeOHLCV(address)
     ]);
+
+    console.log('[TOKEN-API] All parallel fetches complete:', {
+      duration: Date.now() - requestStart,
+      hasDexScreenerPairs: !!dexScreenerData?.pairs?.length,
+      lifetimeFeesSol,
+      solPriceUsd,
+      creatorsCount: creators?.length || 0,
+      birdeyeDataPoints: rawBirdeyeData?.length || 0
+    });
 
     const result = dexScreenerData;
 
@@ -237,7 +287,7 @@ export async function GET(
         tokenAgeHours = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
       }
 
-      return NextResponse.json({
+      const responseData = {
         pairAddress: pair.pairAddress,
         tokenName: pair.baseToken?.name || null,
         tokenSymbol: pair.baseToken?.symbol || null,
@@ -270,12 +320,31 @@ export async function GET(
         solPriceUsd, // Current SOL price for reference
         creators, // Token creators from Bags SDK
         hourlyFees // Real hourly fee data from Birdeye
+      };
+
+      console.log('[TOKEN-API] ========== REQUEST SUCCESS ==========');
+      console.log('[TOKEN-API] Response summary:', {
+        tokenName: responseData.tokenName,
+        tokenSymbol: responseData.tokenSymbol,
+        price: responseData.price,
+        volume24h: responseData.volume24h,
+        lifetimeFeesUsd: responseData.lifetimeFeesUsd,
+        creatorsCount: responseData.creators?.length || 0,
+        hourlyFeesCount: responseData.hourlyFees?.length || 0,
+        totalDuration: Date.now() - requestStart
       });
+
+      return NextResponse.json(responseData);
     }
 
+    console.log('[TOKEN-API] ========== TOKEN NOT FOUND ==========');
+    console.log('[TOKEN-API] DexScreener returned no pairs for:', address);
     return NextResponse.json({ error: 'Token not found' }, { status: 404 });
   } catch (error) {
-    console.error('DexScreener API error:', error);
+    console.error('[TOKEN-API] ========== REQUEST ERROR ==========');
+    console.error('[TOKEN-API] Error:', error instanceof Error ? error.message : error);
+    console.error('[TOKEN-API] Stack:', error instanceof Error ? error.stack : 'no stack');
+    console.error('[TOKEN-API] Duration:', Date.now() - requestStart);
     return NextResponse.json({ error: 'Failed to fetch token data' }, { status: 500 });
   }
 }

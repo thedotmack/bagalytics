@@ -71,15 +71,31 @@ function formatCompactUsd(value: number): string {
 
 
 export async function GET(request: Request) {
+  const requestStart = Date.now();
   const { searchParams, origin } = new URL(request.url);
   const address = searchParams.get('address');
 
+  console.log('[OG-IMAGE] ========== REQUEST START ==========');
+  console.log('[OG-IMAGE] Request URL:', request.url);
+  console.log('[OG-IMAGE] Origin:', origin);
+  console.log('[OG-IMAGE] Address param:', address);
+  console.log('[OG-IMAGE] Environment:', {
+    NODE_ENV: process.env.NODE_ENV,
+    VERCEL_URL: process.env.VERCEL_URL || 'NOT SET',
+  });
+
   // Load fonts for ImageResponse
+  console.log('[OG-IMAGE] Loading fonts...');
   const [interRegularData, interBoldData, diplomataSCData] = await Promise.all([
     interRegular,
     interBold,
     diplomataSC,
   ]);
+  console.log('[OG-IMAGE] Fonts loaded:', {
+    interRegular: interRegularData.byteLength,
+    interBold: interBoldData.byteLength,
+    diplomataSC: diplomataSCData.byteLength,
+  });
 
   const fonts = [
     {
@@ -103,9 +119,12 @@ export async function GET(request: Request) {
   ];
 
   // Fetch the logo for all renders
+  console.log('[OG-IMAGE] Fetching logo from:', origin);
   const logoBase64 = await fetchLogoAsBase64(origin);
+  console.log('[OG-IMAGE] Logo fetched:', !!logoBase64);
 
   if (!address) {
+    console.log('[OG-IMAGE] No address provided, returning default image');
     // Default OG image - no token specified
     return new ImageResponse(
       (
@@ -210,25 +229,47 @@ export async function GET(request: Request) {
   const baseUrl = origin || 'https://bagalytics.dev';
   let tokenData: TokenData | null = null;
 
+  console.log('[OG-IMAGE] Fetching token data from:', `${baseUrl}/api/token/${address}`);
   try {
+    const tokenFetchStart = Date.now();
     const response = await fetch(`${baseUrl}/api/token/${address}`, {
       headers: { 'Accept': 'application/json' },
     });
+    console.log('[OG-IMAGE] Token API response:', {
+      status: response.status,
+      ok: response.ok,
+      duration: Date.now() - tokenFetchStart
+    });
     if (response.ok) {
       tokenData = await response.json();
+      console.log('[OG-IMAGE] Token data received:', {
+        tokenName: tokenData?.tokenName,
+        tokenSymbol: tokenData?.tokenSymbol,
+        lifetimeFeesUsd: tokenData?.lifetimeFeesUsd,
+        totalFeesAccumulated: tokenData?.totalFeesAccumulated,
+        hasTokenImage: !!tokenData?.tokenImage
+      });
+    } else {
+      const errorText = await response.text().catch(() => 'no body');
+      console.log('[OG-IMAGE] Token API error response:', errorText);
     }
-  } catch {
+  } catch (error) {
+    console.error('[OG-IMAGE] Token API fetch error:', error instanceof Error ? error.message : error);
     // Continue with fallback if fetch fails
   }
 
   // Fetch token image and convert to base64 (ImageResponse requires this)
   let tokenImageBase64: string | null = null;
   if (tokenData?.tokenImage) {
+    console.log('[OG-IMAGE] Fetching token image:', tokenData.tokenImage);
     tokenImageBase64 = await fetchImageAsBase64(tokenData.tokenImage);
+    console.log('[OG-IMAGE] Token image converted to base64:', !!tokenImageBase64);
   }
 
   const displayName = tokenData?.tokenName || tokenData?.tokenSymbol || 'Unknown Token';
   const displaySymbol = tokenData?.tokenSymbol ? `$${tokenData.tokenSymbol}` : '';
+
+  console.log('[OG-IMAGE] Rendering image for:', { displayName, displaySymbol });
 
   // Format fee values - focus on income metrics
   const lifetimeFeesFormatted = tokenData?.lifetimeFeesUsd && tokenData.lifetimeFeesUsd > 0
@@ -262,6 +303,19 @@ export async function GET(request: Request) {
     });
     chartPath = `M0,${chartBottom} L${points.join(' L')} L${chartWidth},${chartBottom} Z`;
   }
+
+  console.log('[OG-IMAGE] ========== GENERATING IMAGE ==========');
+  console.log('[OG-IMAGE] Final image params:', {
+    displayName,
+    displaySymbol,
+    lifetimeFeesFormatted,
+    fees24hFormatted,
+    feeVelocityFormatted,
+    hasChartPath: !!chartPath,
+    hasTokenImage: !!tokenImageBase64,
+    hasLogo: !!logoBase64,
+    totalDuration: Date.now() - requestStart
+  });
 
   return new ImageResponse(
     (

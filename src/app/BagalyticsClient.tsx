@@ -92,18 +92,49 @@ export default function BagalyticsClient({ initialTokenAddress }: BagalyticsClie
 
   // Fetch token data from our API route
   const fetchTokenData = async (ca: string): Promise<TokenData | null> => {
+    console.log('[CLIENT] fetchTokenData called for:', ca);
+    console.log('[CLIENT] Current URL:', window.location.href);
+    const apiUrl = `/api/token/${ca}`;
+    console.log('[CLIENT] Fetching from:', apiUrl);
+
     try {
-      const response = await fetch(`/api/token/${ca}`);
-      if (!response.ok) return null;
-      return await response.json();
+      const fetchStart = Date.now();
+      const response = await fetch(apiUrl);
+      console.log('[CLIENT] API Response:', {
+        status: response.status,
+        ok: response.ok,
+        duration: Date.now() - fetchStart,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'no body');
+        console.error('[CLIENT] API error response:', errorText);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('[CLIENT] Token data received:', {
+        tokenName: data.tokenName,
+        tokenSymbol: data.tokenSymbol,
+        price: data.price,
+        lifetimeFeesUsd: data.lifetimeFeesUsd,
+        totalFeesAccumulated: data.totalFeesAccumulated,
+        hourlyFeesCount: data.hourlyFees?.length || 0
+      });
+      return data;
     } catch (err) {
-      console.error("API fetch failed:", err);
+      console.error("[CLIENT] API fetch failed:", err);
       return null;
     }
   };
 
   const analyze = async () => {
-    if (!tokenCA.trim()) return;
+    console.log('[CLIENT] analyze called for:', tokenCA);
+    if (!tokenCA.trim()) {
+      console.log('[CLIENT] Empty tokenCA, skipping');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -111,10 +142,12 @@ export default function BagalyticsClient({ initialTokenAddress }: BagalyticsClie
     const tokenData = await fetchTokenData(tokenCA);
 
     if (tokenData) {
+      console.log('[CLIENT] Setting data state with token:', tokenData.tokenName);
       setData(tokenData);
       setLastUpdated(new Date());
       router.push(`?token=${tokenCA}`, { scroll: false });
     } else {
+      console.log('[CLIENT] No token data received, setting error');
       setData(null);
       setError("Token not found or API unavailable");
     }
@@ -123,6 +156,9 @@ export default function BagalyticsClient({ initialTokenAddress }: BagalyticsClie
   };
 
   useEffect(() => {
+    console.log('[CLIENT] Initial useEffect triggered');
+    console.log('[CLIENT] initialTokenAddress:', initialTokenAddress);
+    console.log('[CLIENT] tokenCA:', tokenCA);
     analyze();
   }, []);
 
@@ -140,15 +176,18 @@ export default function BagalyticsClient({ initialTokenAddress }: BagalyticsClie
 
   // Handle token selection from ticker
   const handleTickerTokenSelect = (address: string) => {
+    console.log('[CLIENT] handleTickerTokenSelect called for:', address);
     setTokenCA(address);
     setLoading(true);
     setError(null);
     fetchTokenData(address).then((tokenData) => {
       if (tokenData) {
+        console.log('[CLIENT] Ticker token data received:', tokenData.tokenName);
         setData(tokenData);
         setLastUpdated(new Date());
         router.push(`?token=${address}`, { scroll: false });
       } else {
+        console.log('[CLIENT] Ticker token fetch failed');
         setData(null);
         setError("Token not found or API unavailable");
       }
