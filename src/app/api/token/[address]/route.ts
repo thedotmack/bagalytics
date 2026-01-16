@@ -114,47 +114,53 @@ async function fetchRawBirdeyeOHLCV(tokenAddress: string): Promise<RawBirdeyeOHL
     return [];
   }
 
-  return getCached(
-    `birdeye:ohlcv:${tokenAddress}`,
-    async () => {
-      const now = Math.floor(Date.now() / 1000);
-      const oneDayAgo = now - 24 * 60 * 60;
-      const url = `https://public-api.birdeye.so/defi/ohlcv?address=${tokenAddress}&type=1H&time_from=${oneDayAgo}&time_to=${now}`;
+  try {
+    return await getCached(
+      `birdeye:ohlcv:${tokenAddress}`,
+      async () => {
+        const now = Math.floor(Date.now() / 1000);
+        const oneDayAgo = now - 24 * 60 * 60;
+        const url = `https://public-api.birdeye.so/defi/ohlcv?address=${tokenAddress}&type=1H&time_from=${oneDayAgo}&time_to=${now}`;
 
-      console.log('[TOKEN-API] Fetching Birdeye OHLCV...');
-      const response = await fetch(url, {
-        headers: {
-          'X-API-KEY': apiKey,
-        },
-      });
+        console.log('[TOKEN-API] Fetching Birdeye OHLCV...');
+        const response = await fetch(url, {
+          headers: {
+            'X-API-KEY': apiKey,
+          },
+        });
 
-      console.log('[TOKEN-API] Birdeye response status:', response.status);
-      if (!response.ok) {
-        console.warn('[TOKEN-API] Birdeye API error:', response.status, await response.text().catch(() => 'no body'));
-        return [];
-      }
+        console.log('[TOKEN-API] Birdeye response status:', response.status);
+        if (!response.ok) {
+          // Throw instead of returning [] so errors don't get cached
+          throw new Error(`Birdeye API error: ${response.status}`);
+        }
 
-      const data = await response.json();
-      console.log('[TOKEN-API] Birdeye data items:', data.data?.items?.length || 0);
+        const data = await response.json();
+        console.log('[TOKEN-API] Birdeye data items:', data.data?.items?.length || 0);
 
-      if (!data.data?.items || !Array.isArray(data.data.items)) {
-        console.log('[TOKEN-API] No Birdeye items found');
-        return [];
-      }
+        if (!data.data?.items || !Array.isArray(data.data.items)) {
+          console.log('[TOKEN-API] No Birdeye items found');
+          return [];
+        }
 
-      return data.data.items.map((item: { unixTime: number; v: number }) => {
-        const date = new Date(item.unixTime * 1000);
-        const hour = date.getHours();
-        const timeLabel = hour === 0 ? '12AM' : hour < 12 ? `${hour}AM` : hour === 12 ? '12PM' : `${hour - 12}PM`;
+        return data.data.items.map((item: { unixTime: number; v: number }) => {
+          const date = new Date(item.unixTime * 1000);
+          const hour = date.getHours();
+          const timeLabel = hour === 0 ? '12AM' : hour < 12 ? `${hour}AM` : hour === 12 ? '12PM' : `${hour - 12}PM`;
 
-        return {
-          time: timeLabel,
-          rawVolume: item.v || 0,
-        };
-      });
-    },
-    300
-  );
+          return {
+            time: timeLabel,
+            rawVolume: item.v || 0,
+          };
+        });
+      },
+      300
+    );
+  } catch (error) {
+    // Errors escape the cache, so rate limits won't poison the cache for 5 minutes
+    console.warn('[TOKEN-API] Birdeye fetch failed (not cached):', error instanceof Error ? error.message : error);
+    return [];
+  }
 }
 
 // Normalize Birdeye hourly data to match DexScreener's accurate 24h USD volume

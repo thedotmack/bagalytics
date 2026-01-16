@@ -33,6 +33,7 @@ Bagalytics is a Next.js 16 app that tracks creator fees for Bags.fm tokens on So
 Required in `.env.local`:
 - `SOLANA_RPC_URL` - Solana RPC endpoint (Chainstack, Helius, QuickNode, etc.)
 - `BAGS_API_KEY` - Bags.fm API key for SDK access
+- `BIRDEYE_API_KEY` - Birdeye API key for hourly chart data (without this, charts show flat lines)
 - `REDIS_URL` - Redis connection string for caching
 
 ### UI Components
