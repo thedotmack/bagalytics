@@ -81,8 +81,9 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
       ? `${tokenName} has earned ${lifetimeFees} lifetime fees (${fees24h} in 24h). Track creator fees on Bagalytics.`
       : `Track creator fees for ${tokenName} on Bagalytics.`;
 
+    const ogImageUrl = `${baseUrl}/api/og?address=${tokenAddress}`;
     console.log('[PAGE-METADATA] Generated metadata:', { title, description });
-    console.log('[PAGE-METADATA] OG image URL:', `/api/og?address=${tokenAddress}`);
+    console.log('[PAGE-METADATA] OG image URL:', ogImageUrl);
 
     return {
       title,
@@ -90,11 +91,11 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
       openGraph: {
         title,
         description,
-        url: `https://bagalytics.dev/?token=${tokenAddress}`,
+        url: `${baseUrl}/?token=${tokenAddress}`,
         siteName: "Bagalytics",
         images: [
           {
-            url: `/api/og?address=${tokenAddress}`,
+            url: ogImageUrl,
             width: 1200,
             height: 630,
             alt: `${tokenName} Creator Fee Analytics`,
@@ -107,7 +108,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
         card: "summary_large_image",
         title,
         description,
-        images: [`/api/og?address=${tokenAddress}`],
+        images: [ogImageUrl],
       },
     };
   } catch (error) {
