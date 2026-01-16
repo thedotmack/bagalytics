@@ -118,9 +118,17 @@ export async function GET(request: Request) {
     },
   ];
 
+  // In production, Coolify's internal networking returns 0.0.0.0 as origin
+  // Use the production URL when origin is internal/invalid
+  const isInternalOrigin = origin.includes('0.0.0.0') || origin.includes('127.0.0.1') || origin.includes('localhost');
+  const baseUrl = (process.env.NODE_ENV === 'production' && isInternalOrigin)
+    ? 'https://bagalytics.dev'
+    : origin || 'https://bagalytics.dev';
+  console.log('[OG-IMAGE] Computed baseUrl:', baseUrl, { isInternalOrigin });
+
   // Fetch the logo for all renders
-  console.log('[OG-IMAGE] Fetching logo from:', origin);
-  const logoBase64 = await fetchLogoAsBase64(origin);
+  console.log('[OG-IMAGE] Fetching logo from:', baseUrl);
+  const logoBase64 = await fetchLogoAsBase64(baseUrl);
   console.log('[OG-IMAGE] Logo fetched:', !!logoBase64);
 
   if (!address) {
@@ -224,9 +232,7 @@ export async function GET(request: Request) {
     );
   }
 
-  // Fetch token data from our API
-  // Use origin (the actual request domain) to ensure we hit the same deployment
-  const baseUrl = origin || 'https://bagalytics.dev';
+  // Fetch token data from our API (uses baseUrl computed above)
   let tokenData: TokenData | null = null;
 
   console.log('[OG-IMAGE] Fetching token data from:', `${baseUrl}/api/token/${address}`);
