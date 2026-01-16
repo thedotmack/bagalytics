@@ -28,10 +28,6 @@ Bagalytics is a Next.js 16 app that tracks creator fees for Bags.fm tokens on So
 - **Bags SDK** (`@bagsfm/bags-sdk`) - Fetches lifetime creator fees and token creator data from Bags.fm on-chain state
 - **DexScreener API** - Primary source for real-time token metrics (no API key required)
 
-### Deployment
-
-**Hosted on Coolify** - NOT Vercel. Do not use Vercel-specific environment variables like `VERCEL_URL`.
-
 ### Environment Variables
 
 Required in `.env.local`:
