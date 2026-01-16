@@ -79,10 +79,6 @@ export async function GET(request: Request) {
   console.log('[OG-IMAGE] Request URL:', request.url);
   console.log('[OG-IMAGE] Origin:', origin);
   console.log('[OG-IMAGE] Address param:', address);
-  console.log('[OG-IMAGE] Environment:', {
-    NODE_ENV: process.env.NODE_ENV,
-    VERCEL_URL: process.env.VERCEL_URL || 'NOT SET',
-  });
 
   // Load fonts for ImageResponse
   console.log('[OG-IMAGE] Loading fonts...');

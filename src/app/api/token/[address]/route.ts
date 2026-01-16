@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { BagsSDK } from '@bagsfm/bags-sdk';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { getCached } from '@/lib/redis';
+import { getCached, getCachedPreserve } from '@/lib/redis';
+
+// Delay helper for rate limiting
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Initialize Bags SDK (lazy, cached)
 let bagsSDK: BagsSDK | null = null;
@@ -114,53 +117,52 @@ async function fetchRawBirdeyeOHLCV(tokenAddress: string): Promise<RawBirdeyeOHL
     return [];
   }
 
-  try {
-    return await getCached(
-      `birdeye:ohlcv:${tokenAddress}`,
-      async () => {
-        const now = Math.floor(Date.now() / 1000);
-        const oneDayAgo = now - 24 * 60 * 60;
-        const url = `https://public-api.birdeye.so/defi/ohlcv?address=${tokenAddress}&type=1H&time_from=${oneDayAgo}&time_to=${now}`;
+  // Use getCachedPreserve - keeps old cached data if fetch fails (rate limit)
+  return getCachedPreserve(
+    `birdeye:ohlcv:${tokenAddress}`,
+    async () => {
+      // 1s delay before request to stay safely under 60 rps limit
+      console.log('[TOKEN-API] Waiting 1s before Birdeye request (rate limit)...');
+      await delay(1000);
 
-        console.log('[TOKEN-API] Fetching Birdeye OHLCV...');
-        const response = await fetch(url, {
-          headers: {
-            'X-API-KEY': apiKey,
-          },
-        });
+      const now = Math.floor(Date.now() / 1000);
+      const oneDayAgo = now - 24 * 60 * 60;
+      const url = `https://public-api.birdeye.so/defi/ohlcv?address=${tokenAddress}&type=1H&time_from=${oneDayAgo}&time_to=${now}`;
 
-        console.log('[TOKEN-API] Birdeye response status:', response.status);
-        if (!response.ok) {
-          // Throw instead of returning [] so errors don't get cached
-          throw new Error(`Birdeye API error: ${response.status}`);
-        }
+      console.log('[TOKEN-API] Fetching Birdeye OHLCV...');
+      const response = await fetch(url, {
+        headers: {
+          'X-API-KEY': apiKey,
+        },
+      });
 
-        const data = await response.json();
-        console.log('[TOKEN-API] Birdeye data items:', data.data?.items?.length || 0);
+      console.log('[TOKEN-API] Birdeye response status:', response.status);
+      if (!response.ok) {
+        throw new Error(`Birdeye API error: ${response.status}`);
+      }
 
-        if (!data.data?.items || !Array.isArray(data.data.items)) {
-          console.log('[TOKEN-API] No Birdeye items found');
-          return [];
-        }
+      const data = await response.json();
+      console.log('[TOKEN-API] Birdeye data items:', data.data?.items?.length || 0);
 
-        return data.data.items.map((item: { unixTime: number; v: number }) => {
-          const date = new Date(item.unixTime * 1000);
-          const hour = date.getHours();
-          const timeLabel = hour === 0 ? '12AM' : hour < 12 ? `${hour}AM` : hour === 12 ? '12PM' : `${hour - 12}PM`;
+      if (!data.data?.items || !Array.isArray(data.data.items)) {
+        console.log('[TOKEN-API] No Birdeye items found');
+        return [];
+      }
 
-          return {
-            time: timeLabel,
-            rawVolume: item.v || 0,
-          };
-        });
-      },
-      300
-    );
-  } catch (error) {
-    // Errors escape the cache, so rate limits won't poison the cache for 5 minutes
-    console.warn('[TOKEN-API] Birdeye fetch failed (not cached):', error instanceof Error ? error.message : error);
-    return [];
-  }
+      return data.data.items.map((item: { unixTime: number; v: number }) => {
+        const date = new Date(item.unixTime * 1000);
+        const hour = date.getHours();
+        const timeLabel = hour === 0 ? '12AM' : hour < 12 ? `${hour}AM` : hour === 12 ? '12PM' : `${hour - 12}PM`;
+
+        return {
+          time: timeLabel,
+          rawVolume: item.v || 0,
+        };
+      });
+    },
+    300,
+    [] // Fallback to empty if no cache exists
+  );
 }
 
 // Normalize Birdeye hourly data to match DexScreener's accurate 24h USD volume
@@ -235,7 +237,6 @@ export async function GET(
     SOLANA_RPC_URL: !!process.env.SOLANA_RPC_URL,
     BIRDEYE_API_KEY: !!process.env.BIRDEYE_API_KEY,
     NODE_ENV: process.env.NODE_ENV,
-    VERCEL_URL: process.env.VERCEL_URL || 'NOT SET',
   });
 
   try {

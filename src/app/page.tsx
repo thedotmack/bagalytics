@@ -10,21 +10,12 @@ const defaultMetadata: Metadata = {
   description: "Track your 1% creator fees from Bags.fm token trading volume.",
 };
 
-// Get base URL for internal API calls - works in dev and production
+// Get base URL for internal API calls - works in dev and production (Coolify)
 function getBaseUrl(): string {
-  console.log('[PAGE] getBaseUrl called:', {
-    VERCEL_URL: process.env.VERCEL_URL || 'NOT SET',
-    NODE_ENV: process.env.NODE_ENV
-  });
-  if (process.env.VERCEL_URL) {
-    const url = `https://${process.env.VERCEL_URL}`;
-    console.log('[PAGE] Using VERCEL_URL:', url);
-    return url;
-  }
   const url = process.env.NODE_ENV === "development"
     ? "http://localhost:3000"
     : "https://bagalytics.dev";
-  console.log('[PAGE] Using fallback URL:', url);
+  console.log('[PAGE] getBaseUrl:', url);
   return url;
 }
 
